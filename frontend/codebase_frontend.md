@@ -1,0 +1,522 @@
+# Frontend Context: Jarvis (Vue 3)
+
+File ini berisi pola dan konvensi frontend Jarvis. Seluruh UI adalah **satu aplikasi Back Office (dashboard)** yang diakses oleh admin. Tidak ada halaman terpisah untuk customer. Contoh kode sudah disesuaikan dengan autentikasi Sanctum dan format response backend. Jangan menambahkan library atau pola di luar yang tercantum di sini kecuali benar-benar dibutuhkan.
+
+---
+
+## 1. Keputusan
+
+| Hal | Keputusan |
+|---|---|
+| Stack | Vue 3 · Vite · Pinia · Vue Router · Tailwind CSS v4 · DaisyUI 5 · Axios |
+| Library tambahan | `idb-keyval` (penyimpanan token), `vue-toastification` (notifikasi), `dompurify` (hanya jika ada HTML dari pengguna) |
+| Bentuk aplikasi | Satu Back Office. Semua fitur adalah menu di dalam dashboard. |
+| Pengakses | Admin, melalui login email dan password |
+| Auth | Token Sanctum (token biasa, **bukan JWT**). Disimpan di IndexedDB. Data user diambil dari `GET /me`, tidak di-decode di klien. |
+| Refresh token | Tidak ada. Saat 401, hapus token lalu arahkan ke login. |
+| Role | `admin`. Pengecekan di frontend hanya untuk tampilan, izin sebenarnya dicek backend. |
+| Base URL | Satu variabel: `VITE_BASEURL`. Tidak ada rahasia lain di variabel `VITE_*`. |
+| Tailwind | Tailwind v4: tanpa `tailwind.config.js`, semua konfigurasi di `app.css` |
+
+### Menu Back Office
+
+| Menu | Path | Fungsi |
+|---|---|---|
+| Dashboard | `/app` | Ringkasan angka: customer, kWh, sesi hari ini, alert aktif |
+| Customers | `/app/customers` | Daftar customer. Detail (`/app/customers/:id`) berisi profil 360°, saldo poin, dan riwayat poin |
+| Tickets | `/app/tickets` | Tiket yang perlu ditangani manusia |
+| Alerts | `/app/alerts` | Alert urgent dan alert inaktivitas, dengan status |
+| Conversations | `/app/conversations` | Riwayat percakapan WhatsApp (hanya baca) |
+| Knowledge | `/app/knowledge` | Kelola artikel FAQ yang dibaca AI |
+| Simulator Chat | `/app/simulator` | Menguji bot dan AI tanpa mengirim WhatsApp sungguhan. Hanya tampil saat mode development. |
+
+---
+
+## 2. Struktur folder `src/`
+
+```
+src/
+├── App.vue                    # root: init auth, listener 'auth:unauthorized'
+├── app.css                    # Tailwind v4 + tema DaisyUI + utility kustom
+├── main.js                    # bootstrap: Pinia, router, plugin
+│
+├── components/                # komponen dasar (didaftarkan global)
+│   ├── BaseBadge.vue
+│   ├── BaseButton.vue
+│   ├── BaseCard.vue
+│   ├── BaseDialog.vue
+│   ├── BaseEmpty.vue
+│   ├── BaseInput.vue
+│   ├── BaseLoading.vue
+│   ├── BasePagination.vue
+│   ├── BaseStat.vue           # kartu angka sederhana untuk dashboard
+│   └── BaseTable.vue
+│
+├── layouts/
+│   ├── app/                   # AppIndex.vue, AppNavbar.vue, AppSidebar.vue
+│   └── auth/                  # AuthIndex.vue (minimal)
+│
+├── pages/
+│   ├── NotFoundPage.vue
+│   ├── ForbiddenPage.vue
+│   ├── auth/LoginPage.vue
+│   └── app/
+│       ├── DashboardPage.vue
+│       ├── customers/{CustomerListPage.vue, CustomerDetailPage.vue}
+│       ├── tickets/TicketListPage.vue
+│       ├── alerts/AlertListPage.vue
+│       ├── conversations/ConversationListPage.vue
+│       ├── knowledge/{KnowledgeListPage.vue, KnowledgeFormPage.vue}
+│       └── simulator/SimulatorPage.vue
+│
+├── plugins/
+│   ├── index.js               # re-export semua plugin
+│   ├── axios.js               # klien HTTP (bagian 4)
+│   ├── idb.js                 # get/set/del token (idb-keyval)
+│   ├── notify.js              # toast (vue-toastification)
+│   └── global.js              # registrasi komponen Base
+│
+├── router/
+│   ├── index.js               # instance router + guard (bagian 5)
+│   └── routes/{auth.route.js, app.route.js}
+│
+├── services/                  # 1 file = 1 domain endpoint
+│   ├── auth.service.js
+│   └── app/{dashboard, customer, ticket, alert, conversation, knowledge, simulator}.service.js
+│
+├── stores/                    # Pinia
+│   ├── auth.store.js
+│   └── app/{dashboard, customer, ticket, alert, conversation, knowledge, simulator}.store.js
+│
+└── utils/
+    ├── constant.js            # BASE_URL, AUTH_TOKEN_NAME, endpoint map
+    └── helper.js              # fungsi murni (format tanggal, angka, dll.)
+```
+
+### Konvensi penamaan
+
+| Kategori | Pola | Contoh |
+|---|---|---|
+| Page | `PascalCase` + `Page` | `CustomerListPage.vue` |
+| Layout | `PascalCase` + `Index` | `AppIndex.vue` |
+| Komponen dasar | prefix `Base` | `BaseButton.vue` |
+| Store | `kebab-case` + `.store.js` | `ticket.store.js` |
+| Service | `kebab-case` + `.service.js` | `customer.service.js` |
+| Route | `kebab-case` + `.route.js` | `app.route.js` |
+
+---
+
+## 3. Pinia store
+
+Pola: Composition API (`setup`), prefix `g$` untuk getter dan `a$` untuk action. Di komponen: `const p$auth = useAuthStore()`. Service diimpor sebagai `s$...`. Error di-catch lalu dilempar ulang sebagai `e?.message ?? e`.
+
+### `stores/auth.store.js`
+
+```js
+import { ref, computed } from 'vue'
+import { defineStore, acceptHMRUpdate } from 'pinia'
+
+import { get, set, del } from '@/plugins/idb'
+import { AUTH_TOKEN_NAME } from '@/utils/constant'
+import * as s$auth from '@/services/auth.service'
+
+export const useAuthStore = defineStore('auth', () => {
+  // ─── State ───────────────────────────────────────────
+  const ready = ref(false)
+  const user = ref({ id: null, name: null, role: null })
+
+  // ─── Getters ─────────────────────────────────────────
+  const g$user = computed(() => user.value)
+  const g$isAdmin = computed(() => user.value.role === 'admin')
+
+  // ─── Helpers ─────────────────────────────────────────
+  const setUser = (u) =>
+    Object.assign(user.value, { id: u?.id ?? null, name: u?.name ?? null, role: u?.role ?? null })
+
+  // ─── Actions ─────────────────────────────────────────
+
+  /** Dipanggil sekali saat bootstrap: pulihkan sesi dari token yang tersimpan */
+  const a$init = async () => {
+    if (ready.value) return
+    try {
+      const token = await get(AUTH_TOKEN_NAME)
+      if (token) await a$user()
+    } catch {
+      /* token tidak valid: a$user sudah membersihkan state */
+    } finally {
+      ready.value = true
+    }
+  }
+
+  /** Ambil data user dari backend (GET /me) */
+  const a$user = async () => {
+    try {
+      const { data } = await s$auth.me()
+      setUser(data)
+    } catch (e) {
+      setUser(null)
+      await del(AUTH_TOKEN_NAME)
+      throw e?.message ?? e
+    }
+  }
+
+  /** @param {{ email: string, password: string }} body */
+  const a$login = async (body) => {
+    try {
+      const { data, title } = await s$auth.login(body)
+      await set(AUTH_TOKEN_NAME, data.token)
+      setUser(data.user)
+      return title
+    } catch (e) {
+      throw e?.message ?? e
+    }
+  }
+
+  const a$logout = async () => {
+    try {
+      await s$auth.logout()
+    } catch {
+      /* tetap lanjut membersihkan sisi klien */
+    } finally {
+      await del(AUTH_TOKEN_NAME)
+      setUser(null)
+    }
+    return 'Logout success'
+  }
+
+  /** Dipakai saat token ditolak backend (401) */
+  const a$clear = async () => {
+    await del(AUTH_TOKEN_NAME)
+    setUser(null)
+  }
+
+  return { g$user, g$isAdmin, a$init, a$user, a$login, a$logout, a$clear }
+})
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useAuthStore, import.meta.hot))
+}
+```
+
+### Alur data
+
+```
+Komponen → p$store.a$action(body) → s$service.fn(body) → api (Axios) → Backend
+Backend → Axios (unwrap response.data) → Service → Store (update ref) → Komponen
+```
+
+Setiap halaman daftar wajib punya tiga kondisi tampilan: loading (`BaseLoading`), kosong (`BaseEmpty`), dan error (toast lewat `notify.error`). Jangan membiarkan layar kosong tanpa penjelasan.
+
+---
+
+## 4. Klien Axios (`plugins/axios.js`)
+
+Format response backend:
+- Sukses: `{ data, title, status, code, meta }`
+- Error: `{ errors: [ { title, details, code, status, meta } ] }`
+
+Klien ini menempelkan Bearer token, mengembalikan `response.data` (unwrap), dan menormalkan error menjadi `{ code, message, errors }` sehingga store cukup melempar `e.message`.
+
+```js
+import axios from 'axios'
+import { del, get } from '@/plugins/idb'
+import { AUTH_TOKEN_NAME, BASE_URL as baseURL } from '@/utils/constant'
+
+const api = axios.create({
+  baseURL,
+  headers: { Accept: 'application/json' }
+})
+
+// ─── Request ─────────────────────────────────────────────
+api.interceptors.request.use(async (config) => {
+  const token = await get(AUTH_TOKEN_NAME)
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+// ─── Response ────────────────────────────────────────────
+const toMessage = (error) => {
+  const data = error.response?.data
+  return data?.errors?.[0]?.details ?? data?.title ?? error.message
+}
+
+api.interceptors.response.use(
+  (response) => response.data,
+  async (error) => {
+    const code = error.response?.status
+    const isLogin = error.config?.url?.endsWith('/login')
+
+    // 401: token tidak valid atau kedaluwarsa. Hanya 401 yang me-logout.
+    if (code === 401 && !isLogin) {
+      await del(AUTH_TOKEN_NAME)
+      window.dispatchEvent(new Event('auth:unauthorized'))
+    }
+
+    // 403: sudah login tetapi tidak berhak. JANGAN logout, cukup tampilkan pesan.
+    return Promise.reject({
+      code,
+      message: toMessage(error),
+      errors: error.response?.data?.errors ?? []
+    })
+  }
+)
+
+export default {
+  install: (app) => {
+    app.config.globalProperties.$api = api
+    app.provide('api', api)
+  }
+}
+
+export { api }
+```
+
+`App.vue` mendengarkan event `auth:unauthorized`, memanggil `p$auth.a$clear()`, lalu `router.replace({ name: 'Login' })`.
+
+### Service layer
+
+```js
+// services/auth.service.js
+import { api } from '@/plugins'
+import { endpoint } from '@/utils/constant'
+
+const url = endpoint.auth
+
+export const login  = async (body) => await api.post(`${url}/login`, body)
+export const logout = async ()     => await api.post(`${url}/logout`)
+export const me     = async ()     => await api.get(`${url}/me`)
+```
+
+```js
+// services/app/customer.service.js
+import { api } from '@/plugins'
+import { endpoint } from '@/utils/constant'
+
+const url = endpoint.customers
+
+export const list   = async (params) => await api.get(url, { params })
+export const show   = async (id)     => await api.get(`${url}/${id}`)
+export const points = async (id)     => await api.get(`${url}/${id}/points`)
+export const ledger = async (id, params) => await api.get(`${url}/${id}/ledger`, { params })
+```
+
+### `utils/constant.js`
+
+```js
+export const BASE_URL = import.meta.env.VITE_BASEURL ?? 'http://localhost:3001'
+export const AUTH_TOKEN_NAME = 'jarvis_token'
+
+export const endpoint = {
+  auth:          '/api/v1',
+  customers:     '/api/v1/customers',
+  tickets:       '/api/v1/tickets',
+  alerts:        '/api/v1/alerts',
+  conversations: '/api/v1/conversations',
+  knowledge:     '/api/v1/knowledge-articles',
+  dashboard:     '/api/v1/dashboard',
+  simulator:     '/api/v1/sim/messages'
+}
+```
+
+Sesuaikan path dengan route backend yang sebenarnya.
+
+---
+
+## 5. Router dan guard
+
+```js
+// router/index.js
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth.store'
+import routes from './routes'
+
+const router = createRouter({ history: createWebHistory(), routes })
+
+// Redirect hanya ke path internal (cegah open redirect)
+export const safeRedirect = (path) =>
+  typeof path === 'string' && path.startsWith('/') && !path.startsWith('//') ? path : '/app'
+
+router.beforeEach(async (to) => {
+  const p$auth = useAuthStore()
+  await p$auth.a$init()
+  const user = p$auth.g$user
+
+  const needAuth = to.matched.some(({ meta }) => meta?.auth)
+  if (needAuth && !user.id) {
+    return { name: 'Login', replace: true, query: { redirect: to.fullPath } }
+  }
+
+  // Pengecekan role di sini hanya untuk tampilan. Backend tetap memeriksa izin.
+  const roles = to.matched.map(({ meta }) => meta?.roles).filter(Boolean).pop()
+  if (roles && !roles.includes(user.role)) return { name: 'Forbidden' }
+
+  if (to.name === 'Login' && user.id) return { name: 'App', replace: true }
+})
+
+export default router
+```
+
+Setelah login berhasil, arahkan dengan `router.replace(safeRedirect(route.query.redirect))`.
+
+### Daftar route
+
+| Path | Name | Auth | Role | Layout |
+|---|---|---|---|---|
+| `/` | | | | redirect ke `/app` |
+| `/auth/login` | `Login` | Tidak | | `AuthIndex` |
+| `/app` | `App` (Dashboard) | Ya | admin | `AppIndex` |
+| `/app/customers` | `Customers` | Ya | admin | ↑ |
+| `/app/customers/:id` | `CustomerDetail` | Ya | admin | ↑ |
+| `/app/tickets` | `Tickets` | Ya | admin | ↑ |
+| `/app/alerts` | `Alerts` | Ya | admin | ↑ |
+| `/app/conversations` | `Conversations` | Ya | admin | ↑ |
+| `/app/knowledge`, `/app/knowledge/:id?` | `Knowledge` | Ya | admin | ↑ |
+| `/app/simulator` | `Simulator` | Ya | admin | ↑ (hanya didaftarkan saat `import.meta.env.DEV`) |
+| `/forbidden` | `Forbidden` | Ya | | |
+| `/:pathMatch(.*)*` | `NotFound` | Tidak | | |
+
+`meta.auth` dan `meta.roles` dipasang sekali pada route induk `/app`, sehingga semua anak mewarisinya. Route simulator ditambahkan secara kondisional:
+
+```js
+...(import.meta.env.DEV
+  ? [{ path: 'simulator', name: 'Simulator', component: () => import('@/pages/app/simulator/SimulatorPage.vue') }]
+  : [])
+```
+
+---
+
+## 6. Halaman Back Office
+
+### 6.1 Dashboard
+
+Kartu angka (`BaseStat`): total customer, total kWh, sesi hari ini, alert aktif. Tanpa library grafik di tahap awal.
+
+### 6.2 Customers
+
+- **Daftar:** pencarian dan paginasi.
+- **Detail:** dibagi dalam tab.
+  - *Profil 360°:* kendaraan, tipe driver, area, rute, kunjungan per minggu, jam dan stasiun favorit, status, risiko churn.
+  - *Poin:* saldo poin dan tabel riwayat poin (ledger) dengan paginasi.
+  - *Percakapan:* tautan ke riwayat chat customer tersebut.
+
+### 6.3 Tickets dan Alerts
+
+Daftar dengan filter status. Alert bisa diubah statusnya: baru, diterima, selesai. Alert urgent diberi warna `error`, perlu manusia `warning`.
+
+### 6.4 Conversations
+
+Baca riwayat percakapan per customer (hanya baca), termasuk jawaban AI.
+
+### 6.5 Knowledge
+
+CRUD artikel FAQ: judul, isi, dan stasiun (opsional). Perubahan langsung memengaruhi jawaban AI.
+
+### 6.6 Simulator Chat (hanya development)
+
+Tujuan: menguji bot dan AI tanpa mengirim pesan WhatsApp sungguhan.
+
+- Input nomor telepon (atau pilih dari daftar customer uji), kolom pesan, dan daftar bubble masuk dan keluar.
+- Kirim pesan: `POST` ke endpoint simulator. Balasan diambil dengan **polling** setiap 1,5 detik memakai parameter `after_id` (hanya pesan baru).
+- Panel debug di samping: status percakapan (langkah registrasi), tool yang dipanggil AI beserta hasilnya, dan tingkat eskalasi. Isinya berasal dari `meta` pesan.
+- Tampilkan alert urgent yang masuk sebagai panel terpisah.
+- Hentikan polling saat komponen dilepas.
+
+```js
+let timer
+const poll = async () => {
+  const { data } = await s$sim.list({ phone: phone.value, after_id: lastId.value })
+  if (data.length) {
+    messages.value.push(...data)
+    lastId.value = data.at(-1).id
+  }
+}
+onMounted(() => { timer = setInterval(poll, 1500) })
+onBeforeUnmount(() => clearInterval(timer))
+```
+
+---
+
+## 7. Tailwind v4 dan DaisyUI 5
+
+Tidak ada `tailwind.config.js`. Konfigurasi dilakukan di `app.css`. Palet bebas, yang penting konsisten di semua halaman.
+
+```css
+@import 'tailwindcss';
+
+@plugin 'daisyui' {
+  logs: false;
+}
+
+@plugin 'daisyui/theme' {
+  name: 'jarvis';
+  default: true;
+  prefersdark: true;
+  color-scheme: 'dark';
+
+  --color-base-100: oklch(24% 0.02 255);
+  --color-base-200: oklch(21% 0.02 255);
+  --color-base-300: oklch(18% 0.02 255);
+  --color-base-content: oklch(96% 0.01 255);
+
+  --color-primary: oklch(72% 0.14 230);
+  --color-primary-content: oklch(20% 0.04 230);
+  --color-secondary: oklch(70% 0.15 300);
+  --color-secondary-content: oklch(20% 0.05 300);
+  --color-accent: oklch(78% 0.14 185);
+  --color-accent-content: oklch(25% 0.05 185);
+  --color-neutral: oklch(16% 0.01 255);
+  --color-neutral-content: oklch(92% 0.01 255);
+
+  --color-info: oklch(74% 0.16 232);
+  --color-success: oklch(76% 0.17 163);
+  --color-warning: oklch(82% 0.18 84);
+  --color-error: oklch(71% 0.19 13);
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.5rem;
+  --border: 1px;
+}
+
+@utility input-block { width: 100%; }
+```
+
+Gunakan token warna DaisyUI (`bg-base-100`, `text-primary`, `btn-primary`, `badge-warning`) alih-alih warna hardcode, supaya tema bisa diganti dari satu tempat.
+
+---
+
+## 8. Komponen dasar
+
+Hanya yang dibutuhkan, didaftarkan global lewat `plugins/global.js`: `BaseButton`, `BaseInput`, `BaseCard`, `BaseTable`, `BaseDialog`, `BaseLoading`, `BaseEmpty`, `BaseBadge`, `BasePagination`, `BaseStat`.
+
+Aturan komponen:
+- Props sederhana dan bernama jelas (`label`, `modelValue`, `error`, `loading`, `variant`).
+- `BaseTable` menerima `columns`, `rows`, `loading`, dan slot per sel. Paginasi memakai `BasePagination` dengan data `meta` dari backend.
+- `BaseDialog` dipakai untuk semua konfirmasi (hapus, ubah status).
+- `BaseInput` menampilkan pesan error per field dari `errors[].details`.
+
+---
+
+## 9. Aturan keamanan frontend
+
+1. **Tidak ada rahasia di frontend.** Hanya `VITE_BASEURL` yang boleh ada di `.env` frontend. Kunci LLM, kredensial WhatsApp, dan secret webhook tidak pernah masuk ke bundle.
+2. **Render teks apa adanya.** Pesan customer, jawaban AI, nama, dan catatan ditampilkan dengan `{{ }}`. Dilarang memakai `v-html` untuk data dari pengguna. Jika HTML memang dibutuhkan (isi artikel FAQ), sanitasi dengan DOMPurify sebelum ditampilkan.
+3. **Token.** Disimpan di IndexedDB untuk prototipe (bisa dibaca JavaScript, jadi pencegahan XSS wajib). Untuk produksi, pertimbangkan cookie HttpOnly lewat mode SPA Sanctum.
+4. **Hanya 401 yang me-logout.** 403 cukup menampilkan pesan tidak berhak.
+5. **Pengecekan role di frontend hanya tampilan.** Setiap izin diputuskan backend.
+6. **Redirect hanya ke path internal** (lihat `safeRedirect`).
+7. **Tidak ada `console.log` data pelanggan** (nomor telepon, isi chat) di build produksi.
+8. **Dependensi:** jalankan `npm audit` secara berkala dan kunci versi lewat lockfile.
+9. **Simulator** hanya terdaftar saat mode development dan tidak ikut ke build produksi.
+
+---
+
+## 10. Checklist per halaman baru
+
+- [ ] Service dan store mengikuti konvensi (`s$`, `g$`, `a$`).
+- [ ] Ada tampilan loading, kosong, dan error.
+- [ ] Error backend tampil lewat toast dari `errors[0].details`.
+- [ ] Tidak ada `v-html` untuk data pengguna.
+- [ ] Route berada di bawah induk `/app` sehingga mewarisi `meta.auth` dan `meta.roles`.
+- [ ] Responsif minimal sampai lebar ponsel.
+- [ ] Hanya memakai token warna DaisyUI.
