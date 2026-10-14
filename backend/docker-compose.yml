@@ -15,8 +15,22 @@ services:
         networks:
             - sail
 
-    #redis:
-        # konfigurasi Redis akan dikerjakan jika pgsql sudah berhasil
+    redis:
+        image: 'redis:alpine'
+        restart: unless-stopped
+        ports:
+            - '${FORWARD_REDIS_PORT:-6380}:6379'
+        volumes:
+            - 'sail-redis:/data'
+        networks:
+            - sail
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+            retries: 3
+            timeout: 5s
 
     #gowa:
         # konfigurasi GOWA akan dikerjakan jika redis sudah berhasil
@@ -27,4 +41,6 @@ networks:
 
 volumes:
     sail-pgsql:
+        driver: local
+    sail-redis:
         driver: local
