@@ -1,0 +1,30 @@
+services:
+    #laravel.test:
+        # konfigurasi Laravel
+
+    pgsql:
+        image: 'pgvector/pgvector:pg18'
+        ports:
+            - '${FORWARD_DB_PORT:-5433}:5432'
+        environment:
+            POSTGRES_DB: '${DB_DATABASE}'
+            POSTGRES_USER: '${DB_USERNAME}'
+            POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
+        volumes:
+            - 'sail-pgsql:/var/lib/postgresql'
+        networks:
+            - sail
+
+    #redis:
+        # konfigurasi Redis akan dikerjakan jika pgsql sudah berhasil
+
+    #gowa:
+        # konfigurasi GOWA akan dikerjakan jika redis sudah berhasil
+
+networks:
+    sail:
+        driver: bridge
+
+volumes:
+    sail-pgsql:
+        driver: local
