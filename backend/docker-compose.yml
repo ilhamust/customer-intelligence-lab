@@ -1,6 +1,31 @@
 services:
-    #laravel.test:
-        # konfigurasi Laravel
+    laravel.test:
+        image: 'laravelsail/php84-composer:latest'
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '${APP_PORT:-8000}:80'
+            - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
+        environment:
+            WWWUSER: '${WWWUSER:-1000}'
+            LARAVEL_SAIL: 1
+            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+            IGNITION_LOCAL_SITES_PATH: '${PWD}'
+            GOWA_BASE_URL: 'http://gowa:3000'
+        working_dir: /var/www/html
+        command: php artisan serve --host=0.0.0.0 --port=80
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            pgsql:
+                condition: service_started
+            redis:
+                condition: service_healthy
+            gowa:
+                condition: service_started
 
     pgsql:
         image: 'pgvector/pgvector:pg18'
@@ -25,22 +50,54 @@ services:
         networks:
             - sail
         healthcheck:
-            test:
-                - CMD
-                - redis-cli
-                - ping
+            test: ["CMD", "redis-cli", "ping"]
             retries: 3
             timeout: 5s
 
-    #gowa:
-        # konfigurasi GOWA akan dikerjakan jika redis sudah berhasil
-
+    gowa:
+        build:
+            context: ../go-whatsapp-web-multidevice
+            dockerfile: docker/golang.Dockerfile
+        restart: unless-stopped
+        ports:
+            - '${FORWARD_GOWA_PORT:-3000}:3000'
+        environment:
+            APP_PORT: 3000
+            APP_HOST: 0.0.0.0
+            APP_DEBUG: 'false'
+            APP_OS: 'Chrome'
+            APP_BASIC_AUTH: '${GOWA_USERNAME:-user1}:${GOWA_PASSWORD:-pass1}'
+            # Storage WhatsApp (SQLite)
+            DB_URI: file:storages/whatsapp.db?_foreign_keys=on
+            CHAT_STORAGE_MAX_OPEN_CONNS: 5
+            # WhatsApp Settings
+            WHATSAPP_AUTO_REPLY: ''
+            WHATSAPP_AUTO_MARK_READ: 'false'
+            WHATSAPP_AUTO_DOWNLOAD_MEDIA: 'true'
+            WHATSAPP_ACCOUNT_VALIDATION: 'true'
+            WHATSAPP_CHAT_STORAGE: 'true'
+            # Webhook Forwarding ke Laravel di container laravel.test
+            WHATSAPP_WEBHOOK: '${GOWA_TARGET_WEBHOOK_URL:-http://laravel.test/api/v1/webhooks/whatsapp}'
+            WHATSAPP_WEBHOOK_SECRET: '${GOWA_WEBHOOK_SECRET}'
+            WHATSAPP_WEBHOOK_INSECURE_SKIP_VERIFY: 'false'
+            WHATSAPP_WEBHOOK_EVENTS: 'message,message.ack'
+            WHATSAPP_WEBHOOK_IGNORE_JIDS: '@g.us' # Filter grup agar fokus ke chat personal driver
+        volumes:
+            - 'sail-gowa-storage:/app/storages'
+            - 'sail-gowa-statics:/app/statics'
+        networks:
+            - sail
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
 networks:
     sail:
         driver: bridge
-
 volumes:
     sail-pgsql:
         driver: local
     sail-redis:
+        driver: local
+    sail-gowa-storage:
+        driver: local
+    sail-gowa-statics:
         driver: local
