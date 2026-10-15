@@ -43,9 +43,9 @@ const handleSend = () => {
 </script>
 
 <template>
-  <div class="h-full flex overflow-hidden bg-base-100 select-none">
-    <!-- ─── Kolom Kiri: WhatsApp Inbox ───────────────── -->
-    <section class="w-80 lg:w-88 shrink-0 border-r border-base-300/40 flex flex-col h-full bg-base-100">
+  <div class="h-full p-4 flex gap-4 bg-base-200 overflow-hidden select-none">
+    <!-- ─── Kolom Kiri: WhatsApp Inbox Card ───────────────── -->
+    <section class="w-80 lg:w-88 shrink-0 bg-base-100 rounded-2xl border border-base-300 shadow-xs flex flex-col h-full overflow-hidden">
       <!-- Header Inbox & Total Counter -->
       <div class="p-4 space-y-3 shrink-0">
         <div class="flex items-center justify-between">
@@ -125,7 +125,7 @@ const handleSend = () => {
           ]"
         >
           <!-- Clean Avatar Initial -->
-          <div class="w-10 h-10 rounded-full bg-base-200 border border-base-300/40 text-base-content/80 font-bold text-xs flex items-center justify-center shrink-0">
+          <div class="w-10 h-10 rounded-full bg-base-200 text-base-content/80 font-bold text-xs flex items-center justify-center shrink-0">
             {{ getInitials(chat.customer.name) }}
           </div>
 
@@ -145,7 +145,7 @@ const handleSend = () => {
             </p>
           </div>
 
-          <!-- Unread Counter Pill (PLN Primary Token) -->
+          <!-- Unread Counter Pill ( Primary Token) -->
           <div v-if="chat.unreadCount > 0" class="shrink-0 pl-1">
             <span class="w-4.5 h-4.5 rounded-full bg-primary text-primary-content font-bold text-[10px] flex items-center justify-center shadow-xs">
               {{ chat.unreadCount }}
@@ -155,11 +155,11 @@ const handleSend = () => {
       </div>
     </section>
 
-    <!-- ─── Kolom Kanan: Ruang Obrolan Aktif (Chat Room) ────────── -->
-    <section class="flex-1 flex flex-col h-full bg-base-200 relative min-w-0">
-      <!-- Empty State ala Gambar 2 (Theme Tokens) -->
-      <div v-if="!p$conv.g$activeConversation" class="flex-1 flex flex-col items-center justify-center p-8 bg-base-200 space-y-4 select-none">
-        <div class="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center">
+    <!-- ─── Kolom Kanan: Active Chat Room Card ────────── -->
+    <section class="flex-1 bg-base-100 rounded-2xl border border-base-300 shadow-xs flex flex-col h-full overflow-hidden relative min-w-0">
+      <!-- Empty State (Solid Clean, Tanpa Efek Neon Transparan) -->
+      <div v-if="!p$conv.g$activeConversation" class="flex-1 flex flex-col items-center justify-center p-8 bg-base-100 space-y-4 select-none">
+        <div class="w-16 h-16 rounded-full bg-base-200 text-primary shadow-xs flex items-center justify-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
@@ -171,7 +171,7 @@ const handleSend = () => {
         </div>
 
         <div class="pt-6">
-          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-base-100 border border-base-300/40 text-[11px] text-base-content/45 font-medium">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-base-100 border border-base-300 text-[11px] text-base-content/60 font-medium">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-base-content/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -184,10 +184,10 @@ const handleSend = () => {
       <!-- Jika obrolan aktif tersedia -->
       <template v-else>
         <!-- Chat Header Ringkas & Bersih -->
-        <header class="h-14 px-5 bg-base-100 border-b border-base-300/40 flex items-center justify-between shrink-0 z-10">
+        <header class="h-14 px-5 bg-base-100 border-b border-base-300 flex items-center justify-between shrink-0 z-10">
           <div class="flex items-center gap-3 min-w-0">
             <!-- Avatar Inisial -->
-            <div class="w-9 h-9 rounded-full bg-base-200 border border-base-300/40 text-base-content/80 font-bold text-xs flex items-center justify-center shrink-0">
+            <div class="w-9 h-9 rounded-full bg-base-200 text-base-content/80 font-bold text-xs flex items-center justify-center shrink-0">
               {{ getInitials(p$conv.g$activeConversation.customer.name) }}
             </div>
 
@@ -212,10 +212,10 @@ const handleSend = () => {
         </header>
 
         <!-- Scrollable Message Body (Lapang & Tenang) -->
-        <div class="flex-1 overflow-y-auto p-6 space-y-3.5">
+        <div class="flex-1 overflow-y-auto p-6 space-y-3.5 bg-base-200/40 dark:bg-base-200">
           <!-- Date Separator -->
           <div class="flex justify-center my-2">
-            <span class="px-3 py-1 rounded-full text-[10px] font-medium bg-base-100 dark:bg-base-300 border border-base-300/40 text-base-content/50 shadow-2xs">
+            <span class="px-3 py-1 rounded-full text-[10px] font-medium bg-base-100 dark:bg-base-300 border border-base-300 text-base-content/50 shadow-2xs">
               Hari ini
             </span>
           </div>
@@ -240,7 +240,7 @@ const handleSend = () => {
               </div>
             </div>
 
-            <!-- Outbound (AI / Agent Bubble - Warna Pekat Solid PLN Primary Tanpa Outline) -->
+            <!-- Outbound  -->
             <div
               v-else
               class="max-w-md bg-primary text-primary-content rounded-2xl rounded-tr-xs p-3 px-3.5 shadow-sm space-y-1"
@@ -262,7 +262,7 @@ const handleSend = () => {
         </div>
 
         <!-- Footer Input Bar (WhatsApp Web Minimalist Style) -->
-        <footer class="p-3 px-4 bg-base-100 border-t border-base-300/40 shrink-0">
+        <footer class="p-3 px-4 bg-base-100 border-t border-base-300 shrink-0">
           <div class="flex items-center gap-2">
             <!-- Attachment Icon -->
             <button class="btn btn-ghost btn-circle btn-sm text-base-content/50 hover:text-base-content" title="Lampirkan berkas">

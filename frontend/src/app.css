@@ -42,34 +42,34 @@
     --border: 1px;
 }
 
-/* ─── Dark Theme ─────────────────────────────────────────────── */
+/* ─── Dark Theme (Sleek Obsidian & Midnight - Modern SaaS) ───── */
 @plugin 'daisyui/theme' {
     name: 'dark';
     default: false;
     prefersdark: true;
     color-scheme: 'dark';
 
-    /* Base Background */
-    --color-base-100: oklch(22% 0.025 225);
-    --color-base-200: oklch(18% 0.022 225);
-    --color-base-300: oklch(27% 0.03 225);
-    --color-base-content: oklch(96% 0.01 215);
+    /* Base Background: Deep midnight canvas with sleek elevated cards */
+    --color-base-100: oklch(18.5% 0.02 240);   /* Elevated card surface (#151b26) */
+    --color-base-200: oklch(13.5% 0.015 240);  /* Deep obsidian canvas (#0d1117) */
+    --color-base-300: oklch(25.5% 0.025 240);  /* Crisp border / divider / hover (#222a3a) */
+    --color-base-content: oklch(96% 0.005 240); /* Crisp clean white text */
 
-    /* Brand Colors */
-    --color-primary: oklch(70% 0.14 215);
-    --color-primary-content: oklch(18% 0.04 215);
-    --color-secondary: oklch(68% 0.15 235);
-    --color-secondary-content: oklch(18% 0.04 235);
-    --color-accent: oklch(84% 0.18 88);
-    --color-accent-content: oklch(20% 0.04 88);
-    --color-neutral: oklch(16% 0.02 225);
-    --color-neutral-content: oklch(92% 0.01 225);
+    /* Brand Colors: Vibrant & Crisp, with pure white text */
+    --color-primary: oklch(62% 0.17 215);
+    --color-primary-content: oklch(99% 0 0);
+    --color-secondary: oklch(62% 0.18 245);
+    --color-secondary-content: oklch(99% 0 0);
+    --color-accent: oklch(86% 0.19 88);
+    --color-accent-content: oklch(18% 0.04 88);
+    --color-neutral: oklch(16% 0.018 240);
+    --color-neutral-content: oklch(94% 0.008 240);
 
     /* Semantic */
-    --color-info: oklch(74% 0.15 225);
-    --color-success: oklch(75% 0.17 155);
-    --color-warning: oklch(80% 0.17 75);
-    --color-error: oklch(70% 0.20 25);
+    --color-info: oklch(70% 0.16 225);
+    --color-success: oklch(72% 0.18 155);
+    --color-warning: oklch(80% 0.18 75);
+    --color-error: oklch(65% 0.22 25);
 
     --radius-selector: 0.5rem;
     --radius-field: 0.5rem;

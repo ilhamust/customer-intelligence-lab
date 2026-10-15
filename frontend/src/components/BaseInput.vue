@@ -39,13 +39,13 @@ defineEmits(['update:modelValue'])
 </script>
 
 <template>
-  <div :class="['form-control space-y-1', { 'w-full': block }]">
+  <div :class="['form-control space-y-1.5', { 'w-full': block }]">
     <label v-if="label" class="label p-0">
-      <span class="label-text text-xs font-semibold text-base-content/80">{{ label }}</span>
+      <span class="text-[11px] font-bold text-base-content/70 uppercase tracking-wider">{{ label }}</span>
     </label>
     
     <div class="relative flex items-center">
-      <div v-if="$slots.prefix" class="absolute left-3 flex items-center pointer-events-none text-base-content/50">
+      <div v-if="$slots.prefix" class="absolute left-3.5 flex items-center pointer-events-none text-base-content/40">
         <slot name="prefix" />
       </div>
 
@@ -54,22 +54,24 @@ defineEmits(['update:modelValue'])
         :value="modelValue"
         :placeholder="placeholder"
         :disabled="disabled"
-        class="input input-bordered focus:border-primary focus:outline-none transition-colors"
+        class="input w-full bg-base-100 border border-base-300 text-base-content placeholder:text-base-content/40 focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none shadow-xs transition-all disabled:bg-base-200 disabled:opacity-70 disabled:cursor-not-allowed"
         :class="[
-          `input-${size}`,
-          { 'w-full': block },
+          size === 'xs' ? 'h-7 text-xs rounded-lg px-2.5' : '',
+          size === 'sm' ? 'h-9 text-xs rounded-xl px-3.5' : '',
+          size === 'md' ? 'h-10 text-sm rounded-xl px-4' : '',
+          size === 'lg' ? 'h-12 text-base rounded-xl px-5' : '',
           { 'pl-10': $slots.prefix },
           { 'pr-10': $slots.suffix },
-          { 'input-error': error }
+          { '!border-error focus:!ring-error': error }
         ]"
         @input="$emit('update:modelValue', $event.target.value)"
       />
 
-      <div v-if="$slots.suffix" class="absolute right-3 flex items-center text-base-content/50">
+      <div v-if="$slots.suffix" class="absolute right-3.5 flex items-center text-base-content/40">
         <slot name="suffix" />
       </div>
     </div>
 
-    <p v-if="error" class="text-xs text-error mt-1 font-medium">{{ error }}</p>
+    <p v-if="error" class="text-xs text-error font-medium mt-1">{{ error }}</p>
   </div>
 </template>

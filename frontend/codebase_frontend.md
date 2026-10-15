@@ -526,17 +526,113 @@ Palet warna:
 
 Gunakan token warna DaisyUI (`bg-base-100`, `text-primary`, `btn-primary`, `badge-warning`) alih-alih warna hardcode, supaya tema bisa diganti dari satu tempat.
 
+### 7.1 Aturan Desain UI: Larangan Efek Neon, Transparansi, & Outline
+
+Untuk menjaga tampilan Back Office tetap elegan, profesional, dan bersih (bukan tampilan neon atau berantakan):
+
+1. **Dilarang Keras Memakai Efek Neon & Background Transparan (`/10`, `/15`, `/20`, dll.)**:
+   - Dilarang menggunakan kombinasi warna brand transparan seperti `bg-primary/5`, `bg-primary/8`, `bg-primary/10`, `bg-primary/15`, `bg-primary/20`.
+   - Warna transparan semacam ini menghasilkan visual "neon kusam" dan terlihat tidak solid.
+   - Komponen aktif, bubble chat, dan elemen brand harus menggunakan warna pekat solid (`bg-primary text-primary-content`) atau latar netral solid (`bg-base-200`, `bg-base-100`, `bg-base-300`).
+
+2. **Dilarang Memakai Outline / Border Transparan**:
+   - Dilarang memakai border outline tipis/transparan seperti `border-primary/20` atau `border-base-300/40`.
+   - Gunakan garis pembatas solid yang tegas (`border-base-300`) untuk pemisah kolom/layout, atau **tanpa border sama sekali** untuk bubble chat.
+
+3. **Brand Logo Sidebar Wajib Murni Tipografi (DILARANG Menambahkan Ikon)**:
+   - **Jangan menambahkan ikon, svg, atau emblem apapun** di samping teks brand header sidebar.
+   - Brand logo di sidebar adalah **murni teks tipografi tebal**:
+     ```html
+     <span class="text-[15px] font-black text-base-content tracking-tight truncate">Intelligence Lab</span>
+     ```
+
+4. **Kuning (`accent`) HANYA untuk Aksen Tombol Aksi**:
+   - Warna kuning tidak boleh digunakan sebagai latar navigasi, kartu, atau elemen umum. Kuning hanya diperuntukkan sebagai aksen tombol interaktif utama (misal: tombol Kirim pesan).
+
+5. **Bubble Chat Ala WhatsApp**:
+   - Kedua bubble (pengirim dan penerima) wajib menggunakan warna pekat solid dan **tanpa outline/border sama sekali**.
+   - Pengirim: Solid `bg-primary text-primary-content`.
+   - Penerima: Solid `bg-base-100 dark:bg-base-300 text-base-content`.
+
+6. **Dilarang Mengubah Warna Teks Profil / Teks Statis Menjadi Tosca Saat Hover**:
+   - **Dilarang keras** menambahkan efek hover perubahan warna tosca/primary (`hover:text-primary`, `group-hover:text-primary`) pada teks profil pengguna (nama 'Admin', avatar, role), judul halaman, header, atau teks label statis.
+   - Profil pengguna dan teks statis harus tetap menggunakan warna alaminya (`text-base-content` atau `text-base-content/60`) tanpa berubah warna saat dilewati kursor.
+   - Warna tosca/primary **hanya** untuk menu navigasi yang sedang berstatus aktif (kapsul solid) atau tautan/tombol aksi primer yang memang dirancang untuk berpindah rute/tindakan.
+
+### 7.2 Standar Desain UI: Acuan Desain Flat SaaS Modern (Mode Light & Arsitektur)
+
+Gaya visual yang digunakan pada aplikasi ini mengacu pada standar **Modern Flat SaaS Dashboard**. Seluruh pembuatan halaman dan komponen baru (Dashboard, Customers, Tickets, Alerts, Knowledge) **wajib mengikuti aturan ini secara konsisten**:
+
+#### 1. Arsitektur Layout: Floating Rounded Cards di atas Kanvas Terpisah
+- **Kanvas Luar / Latar Belakang Aplikasi**: Menggunakan `bg-base-200`.
+- **Struktur Halaman Konten**:
+  - Halaman konten **wajib dibungkus dengan padding celah**: `class="h-full p-4 flex gap-4 bg-base-200 overflow-hidden"`.
+  - **Dilarang keras membuat area konten menempel langsung (wall-to-wall)** ke sidebar dan topbar tanpa celah `bg-base-200`. Jarak visual 16px (`p-4 gap-4`) ini menjaga agar sidebar, navbar, dan konten memiliki pemisahan arsitektur yang jelas dan tidak terlihat "menyatu".
+  - Seluruh panel konten (tabel, daftar chat, form, kartu analitik) wajib berwujud **Floating Rounded Cards**:
+    ```html
+    <section class="bg-base-100 rounded-2xl border border-base-300 shadow-xs flex flex-col h-full overflow-hidden">
+    ```
+
+#### 2. Standar Sidebar Navigasi (`AppSidebar.vue`)
+- **Latar & Batas**: `bg-base-100 border-r border-base-300`.
+- **Tinggi Header**: `h-16` (64px), sejajar presisi dengan tinggi Topbar.
+- **Brand Title**: Teks tebal murni `text-[15px] font-black text-base-content tracking-tight` (tanpa ikon).
+- **Header Kategori**: Menggunakan judul kategori huruf kapital tebal: `text-[10px] font-extrabold text-base-content/40 uppercase tracking-wider px-2 pt-2 pb-1.5` (contoh: `MAIN MENU`).
+- **Menu Aktif**: Berbentuk **kapsul pekat solid** PLN Primary:
+  ```html
+  class="bg-primary text-primary-content font-semibold rounded-xl px-3.5 py-2.5 shadow-xs flex items-center gap-3"
+  ```
+- **Menu Tidak Aktif**: Ikon garis dan teks netral:
+  ```html
+  class="text-base-content/60 hover:bg-base-200 hover:text-base-content font-medium rounded-xl px-3.5 py-2.5 flex items-center gap-3 transition-colors"
+  ```
+- **Kartu Status Gradien di Bawah**: Kartu lengkung modern `rounded-2xl bg-gradient-to-br from-primary to-secondary text-primary-content p-4 shadow-sm` berisi status online gateway dengan lampu hijau berkedip.
+- **Perilaku Hover-to-Expand**:
+  - Saat mode ikon aktif (`isCollapsed = true`), sidebar menyusut ke `w-18` (72px) dan diberi *placeholder* agar layout konten tidak bergeser.
+  - Saat di-hover (`@mouseenter`), sidebar melebar secara dinamis ke `w-60` (240px) sebagai floating overlay (`shadow-2xl z-50`).
+  - Saat kursor lepas (`@mouseleave`), kembali ke `w-18`.
+
+#### 3. Standar Topbar / Navbar (`AppNavbar.vue`)
+- **Tinggi & Batas**: `h-16` (64px) dengan `bg-base-100 border-b border-base-300 px-6`.
+- **Bilah Pencarian Global**: Kapsul lonjong (*rounded-full*) di sisi kiri:
+  ```html
+  <input type="text" placeholder="Cari..." class="input input-sm w-full bg-base-200 border-0 rounded-full pl-10 pr-4 text-xs" />
+  ```
+- **Kontrol Kanan**: Tombol theme switcher, notifikasi (dengan dot kuning `bg-accent`), pemisah garis tipis vertikal `h-6 w-px bg-base-300`, dan pil profil pengguna (avatar gradasi bulat + nama + jabatan).
+
+#### 4. Aturan Pembuatan Halaman Baru
+Setiap kali menambahkan halaman baru (misal: `/app/customers`, `/app/tickets`, `/app/dashboard`):
+- Jangan buat halaman satu lembar putih polos menempel ke pinggir.
+- Bungkus selalu dengan `div class="h-full p-4 flex flex-col gap-4 bg-base-200 overflow-y-auto"`.
+- Tempatkan tabel atau ringkasan data di dalam kartu `BaseCard` atau container `bg-base-100 rounded-2xl border border-base-300 shadow-xs p-5`.
+
 ---
 
 ## 8. Komponen dasar
 
-Hanya yang dibutuhkan, didaftarkan global lewat `plugins/global.js`: `BaseButton`, `BaseInput`, `BaseCard`, `BaseTable`, `BaseDialog`, `BaseLoading`, `BaseEmpty`, `BaseBadge`, `BasePagination`, `BaseStat`.
+Seluruh komponen dasar terdaftar secara global via `plugins/global.js`: `BaseButton`, `BaseInput`, `BaseCard`, `BaseTable`, `BaseDialog`, `BaseLoading`, `BaseEmpty`, `BaseBadge`, `BasePagination`, `BaseStat`.
 
-Aturan komponen:
-- Props sederhana dan bernama jelas (`label`, `modelValue`, `error`, `loading`, `variant`).
-- `BaseTable` menerima `columns`, `rows`, `loading`, dan slot per sel. Paginasi memakai `BasePagination` dengan data `meta` dari backend.
-- `BaseDialog` dipakai untuk semua konfirmasi (hapus, ubah status).
-- `BaseInput` menampilkan pesan error per field dari `errors[].details`.
+### Aturan Visual & Konsistensi Komponen (Seragam dengan Desain Sidebar/Navbar):
+1. **Hierarki Sudut (Border Radius)**:
+   - Kartu kontainer & dialog (`BaseCard`, `BaseTable`, `BaseDialog`, `BaseStat`): Wajib **`rounded-2xl`** dengan batas solid `border border-base-300 shadow-xs`.
+   - Elemen interaktif (`BaseButton`, `BaseInput`, pagination pill): Menggunakan **`rounded-xl`** (kecuali tombol `xs` memakai `rounded-lg`).
+   - Status & pill (`BaseBadge`): Menggunakan **`rounded-lg`** atau `rounded-full` (*pill*).
+   - Indikator skeleton (`BaseLoading`): Wajib **`rounded-xl`** atau `rounded-lg` (dilarang memakai sudut tajam `rounded-sm`).
+2. **Karakteristik Tombol (`BaseButton`)**:
+   - `primary`: Solid `btn-primary text-primary-content font-semibold shadow-xs` (kapsul PLN).
+   - `accent`: Solid `btn-accent text-accent-content font-bold shadow-xs` (kuning aksi interaktif).
+   - `outline`: `bg-transparent border border-base-300 text-base-content hover:bg-base-200`.
+   - `ghost`: `bg-transparent border-0 text-base-content/70 hover:bg-base-200 hover:text-base-content`.
+3. **Standar Field Input (`BaseInput`)**:
+   - Input menggunakan `bg-base-100 border border-base-300 rounded-xl shadow-xs text-sm focus:border-primary focus:ring-1 focus:ring-primary`.
+   - Label menggunakan huruf kapital tebal: `text-[11px] font-bold text-base-content/70 uppercase tracking-wider`.
+4. **Tabel & Paginasi (`BaseTable`, `BasePagination`)**:
+   - `BaseTable` menerima `columns`, `rows`, `loading`, dan slot per sel (`#cell-[key]`). Terintegrasi langsung dengan `BaseLoading` dan `BaseEmpty`.
+   - `BasePagination` menerima `meta` (`current_page`, `last_page`, `total`, `from`, `to`), dengan tombol nomor halaman kapsul aktif `bg-primary text-primary-content`.
+5. **Modal & Konfirmasi (`BaseDialog`)**:
+   - Menampilkan dialog konfirmasi dengan backdrop blur halus, ikon squircle `rounded-2xl`, judul tebal, dan tombol aksi `BaseButton`.
+6. **Kartu Ringkasan Metrik (`BaseStat`)**:
+   - Kontainer `rounded-2xl border border-base-300 p-5 shadow-xs`, label kapital `text-[11px] font-bold text-base-content/60 uppercase`, nilai besar `text-2xl font-black`, dan wadah ikon squircle `rounded-2xl bg-base-200`.
 
 ---
 

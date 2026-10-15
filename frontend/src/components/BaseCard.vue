@@ -21,25 +21,35 @@ defineProps({
 
 <template>
   <div
-    class="card bg-base-100 shadow-xs"
+    class="bg-base-100 rounded-2xl shadow-xs flex flex-col overflow-hidden"
     :class="[
       { 'border border-base-300': bordered }
     ]"
   >
-    <div v-if="title || $slots.header || $slots.actions" class="px-5 pt-5 pb-3 flex items-center justify-between border-b border-base-300/60">
+    <div
+      v-if="title || $slots.header || $slots.actions"
+      class="px-5 py-4 flex items-center justify-between border-b border-base-300 shrink-0"
+    >
       <div>
         <slot name="header">
-          <h3 class="font-bold text-base text-base-content">{{ title }}</h3>
+          <h3 class="font-bold text-sm sm:text-base text-base-content tracking-tight">{{ title }}</h3>
           <p v-if="subtitle" class="text-xs text-base-content/60 mt-0.5">{{ subtitle }}</p>
         </slot>
       </div>
-      <div v-if="$slots.actions" class="card-actions">
+      <div v-if="$slots.actions" class="flex items-center gap-2">
         <slot name="actions" />
       </div>
     </div>
 
-    <div :class="['card-body', padding]">
+    <div :class="['flex-1', padding]">
       <slot />
+    </div>
+
+    <div
+      v-if="$slots.footer"
+      class="px-5 py-3.5 bg-base-100 border-t border-base-300 shrink-0 flex items-center justify-between"
+    >
+      <slot name="footer" />
     </div>
   </div>
 </template>
