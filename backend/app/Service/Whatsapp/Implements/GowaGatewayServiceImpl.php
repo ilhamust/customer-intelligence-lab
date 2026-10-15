@@ -446,4 +446,77 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
 
         return true;
     }
+
+    /**
+     * Get list of chats from GOWA.
+     */
+    public function getChats(?string $deviceId = null, int $limit = 50, int $offset = 0): array
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId);
+
+        try {
+            $response = $this->client()
+                ->withHeaders(['X-Device-Id' => $id])
+                ->get('/chats', [
+                    'limit' => $limit,
+                    'offset' => $offset,
+                ]);
+
+            if (!$response->successful()) {
+                $this->logError($m, 'Failed to fetch chats from GOWA', [
+                    'device_id' => $id,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return [];
+            }
+
+            return $response->json('results.data', []);
+        } catch (Exception $e) {
+            $this->logError($m, 'Error fetching chats from GOWA', [
+                'device_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Get list of messages for a specific chat from GOWA.
+     */
+    public function getChatMessages(string $chatJid, ?string $deviceId = null, int $limit = 50, int $offset = 0): array
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId);
+
+        try {
+            $response = $this->client()
+                ->withHeaders(['X-Device-Id' => $id])
+                ->get("/chat/{$chatJid}/messages", [
+                    'limit' => $limit,
+                    'offset' => $offset,
+                ]);
+
+            if (!$response->successful()) {
+                $this->logError($m, 'Failed to fetch chat messages from GOWA', [
+                    'device_id' => $id,
+                    'chat_jid' => $chatJid,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return [];
+            }
+
+            return $response->json('results.data', []);
+        } catch (Exception $e) {
+            $this->logError($m, 'Error fetching chat messages from GOWA', [
+                'device_id' => $id,
+                'chat_jid' => $chatJid,
+                'error' => $e->getMessage(),
+            ]);
+            return [];
+        }
+    }
 }
+

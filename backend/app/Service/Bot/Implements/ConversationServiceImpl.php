@@ -1,0 +1,456 @@
+<?php
+
+namespace App\Service\Bot\Implements;
+
+use App\Exceptions\BadRequestException;
+use App\Exceptions\NotFoundException;
+use App\Models\Bot\Conversation;
+use App\Models\Bot\Message;
+use App\Models\Bot\WhatsappChannel;
+use App\Service\Bot\Contracts\ConversationService;
+use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
+use App\Traits\ServiceHelper;
+use Carbon\Carbon;
+use Exception;
+
+class ConversationServiceImpl implements ConversationService
+{
+    use ServiceHelper;
+
+    public function __construct(
+        protected WhatsappGatewayService $whatsappGateway
+    ) {}
+
+    /**
+     * Resolve target WhatsApp device ID.
+     */
+    protected function resolveDeviceId(?string $deviceId = null): ?string
+    {
+        if ($deviceId) {
+            return $deviceId;
+        }
+
+        $channel = WhatsappChannel::where('status', 'connected')->first()
+            ?? WhatsappChannel::where('is_active', true)->first()
+            ?? WhatsappChannel::first();
+
+        return $channel?->device_id;
+    }
+
+    /**
+     * List all conversations with filters and formatted data.
+     */
+    public function list(array $filters = []): array
+    {
+        $m = __METHOD__;
+        $this->logInfo($m, 'Listing conversations', ['filters' => $filters]);
+
+        $query = Conversation::with(['messages' => function ($q) {
+            $q->orderBy('sent_at', 'asc');
+        }]);
+
+        if (!empty($filters['device_id'])) {
+            $query->where('device_id', $filters['device_id']);
+        }
+
+        $status = $filters['status'] ?? 'all';
+        if ($status === 'unread') {
+            $query->where('unread_count', '>', 0);
+        } elseif ($status === 'escalated') {
+            $query->where(function ($q) {
+                $q->where('status', 'escalated')
+                  ->orWhere('handler', 'human');
+            });
+        }
+
+        if (!empty($filters['search'])) {
+            $search = trim($filters['search']);
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'ilike', "%{$search}%")
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('chat_jid', 'like', "%{$search}%")
+                  ->orWhere('last_message', 'ilike', "%{$search}%");
+            });
+        }
+
+        $conversations = $query->orderByRaw('last_message_time DESC NULLS LAST')
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        $data = $conversations->map(fn(Conversation $c) => $this->formatConversation($c))->all();
+
+        return [
+            'data' => $data,
+            'summary' => [
+                'all' => Conversation::count(),
+                'unread' => Conversation::where('unread_count', '>', 0)->count(),
+                'escalated' => Conversation::where('status', 'escalated')->orWhere('handler', 'human')->count(),
+            ],
+        ];
+    }
+
+    /**
+     * Get a single conversation by ID with its messages.
+     */
+    public function show(string $conversationId): Conversation
+    {
+        $conversation = Conversation::with(['messages' => function ($q) {
+            $q->orderBy('sent_at', 'asc');
+        }])->find($conversationId);
+
+        if (!$conversation) {
+            throw new NotFoundException("Conversation [{$conversationId}] not found.");
+        }
+
+        // Reset unread count when viewed
+        if ($conversation->unread_count > 0) {
+            $conversation->update(['unread_count' => 0]);
+        }
+
+        return $conversation;
+    }
+
+    /**
+     * Get message history for a conversation.
+     */
+    public function getMessages(string $conversationId, int $limit = 50): array
+    {
+        $conversation = $this->show($conversationId);
+
+        $messages = $conversation->messages()
+            ->orderBy('sent_at', 'asc')
+            ->limit($limit)
+            ->get();
+
+        return $messages->map(fn(Message $m) => $this->formatMessage($m))->all();
+    }
+
+    /**
+     * Send an outgoing message in a conversation via WhatsApp Gateway and persist to DB.
+     */
+    public function sendMessage(string $conversationId, string $text, ?string $senderType = 'human'): Message
+    {
+        $m = __METHOD__;
+        $conversation = Conversation::find($conversationId);
+
+        if (!$conversation) {
+            throw new NotFoundException("Conversation [{$conversationId}] not found.");
+        }
+
+        $trimmedText = trim($text);
+        if (empty($trimmedText)) {
+            throw new BadRequestException('Message content cannot be empty.');
+        }
+
+        // Send via WhatsApp Gateway
+        $sent = $this->whatsappGateway->sendText(
+            $conversation->phone,
+            $trimmedText,
+            $conversation->device_id
+        );
+
+        if (!$sent) {
+            $this->logWarning($m, 'Failed sending WhatsApp message via gateway, saving with failed status', [
+                'conversation_id' => $conversationId,
+                'phone' => $conversation->phone,
+            ]);
+        }
+
+        // Create Message Record
+        $message = Message::create([
+            'conversation_id' => $conversation->id,
+            'whatsapp_message_id' => null,
+            'sender_type' => $senderType ?: 'human',
+            'is_from_me' => true,
+            'text' => $trimmedText,
+            'status' => $sent ? 'delivered' : 'failed',
+            'sent_at' => now(),
+        ]);
+
+        // Update Conversation
+        $conversation->update([
+            'last_message' => $trimmedText,
+            'last_message_time' => now(),
+        ]);
+
+        $this->logInfo($m, 'Message sent and stored', [
+            'conversation_id' => $conversation->id,
+            'message_id' => $message->id,
+            'status' => $message->status,
+        ]);
+
+        return $message;
+    }
+
+    /**
+     * Synchronize conversations and recent messages from GOWA into local database.
+     */
+    public function syncFromGowa(?string $deviceId = null): array
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId);
+
+        if (!$id) {
+            $this->logWarning($m, 'No WhatsApp device configured or connected for sync');
+            return [
+                'synced_conversations' => 0,
+                'synced_messages' => 0,
+                'message' => 'No active WhatsApp device found.',
+            ];
+        }
+
+        $this->logInfo($m, 'Starting GOWA synchronization', ['device_id' => $id]);
+
+        $chats = $this->whatsappGateway->getChats($id, 100);
+        $syncedConvCount = 0;
+        $syncedMsgCount = 0;
+
+        foreach ($chats as $chat) {
+            $chatJid = $chat['jid'] ?? null;
+            if (!$chatJid || str_contains($chatJid, 'broadcast') || $chatJid === '0@s.whatsapp.net') {
+                continue;
+            }
+
+            $phone = preg_replace('/[^0-9]/', '', explode('@', $chatJid)[0]);
+            $name = !empty($chat['name']) ? $chat['name'] : $phone;
+
+            $lastTime = null;
+            if (!empty($chat['last_message_time']) && !str_starts_with($chat['last_message_time'], '0001')) {
+                try {
+                    $lastTime = Carbon::parse($chat['last_message_time']);
+                } catch (Exception) {
+                    $lastTime = null;
+                }
+            }
+
+            $conversation = Conversation::updateOrCreate(
+                [
+                    'device_id' => $id,
+                    'chat_jid' => $chatJid,
+                ],
+                [
+                    'name' => $name,
+                    'phone' => $phone,
+                    'last_message_time' => $lastTime,
+                    'status' => 'all',
+                    'handler' => 'ai',
+                ]
+            );
+
+            $syncedConvCount++;
+
+            // Fetch recent messages for this chat
+            $gowaMessages = $this->whatsappGateway->getChatMessages($chatJid, $id, 30);
+            if (!empty($gowaMessages) && is_array($gowaMessages)) {
+                $latestMessageText = null;
+                $latestMessageTime = null;
+
+                foreach ($gowaMessages as $gMsg) {
+                    $msgId = $gMsg['id'] ?? null;
+                    $content = $gMsg['content'] ?? '';
+                    $isFromMe = (bool) ($gMsg['is_from_me'] ?? false);
+
+                    $sentAt = now();
+                    if (!empty($gMsg['timestamp'])) {
+                        try {
+                            $sentAt = Carbon::parse($gMsg['timestamp']);
+                        } catch (Exception) {
+                            $sentAt = now();
+                        }
+                    }
+
+                    // Avoid duplicate messages
+                    $existingMsg = null;
+                    if ($msgId) {
+                        $existingMsg = Message::where('conversation_id', $conversation->id)
+                            ->where('whatsapp_message_id', $msgId)
+                            ->first();
+                    }
+
+                    if (!$existingMsg) {
+                        Message::create([
+                            'conversation_id' => $conversation->id,
+                            'whatsapp_message_id' => $msgId,
+                            'sender_type' => $isFromMe ? 'human' : 'customer',
+                            'is_from_me' => $isFromMe,
+                            'text' => $content,
+                            'status' => 'delivered',
+                            'sent_at' => $sentAt,
+                            'meta' => [
+                                'media_type' => $gMsg['media_type'] ?? '',
+                                'filename' => $gMsg['filename'] ?? '',
+                                'sender_jid' => $gMsg['sender_jid'] ?? '',
+                            ],
+                        ]);
+                        $syncedMsgCount++;
+                    }
+
+                    // Track latest message
+                    if (!$latestMessageTime || $sentAt->greaterThan($latestMessageTime)) {
+                        $latestMessageTime = $sentAt;
+                        $latestMessageText = $content;
+                    }
+                }
+
+                if ($latestMessageText !== null) {
+                    $conversation->update([
+                        'last_message' => $latestMessageText,
+                        'last_message_time' => $latestMessageTime,
+                    ]);
+                }
+            }
+        }
+
+        $this->logInfo($m, 'GOWA sync completed', [
+            'device_id' => $id,
+            'conversations' => $syncedConvCount,
+            'messages' => $syncedMsgCount,
+        ]);
+
+        return [
+            'synced_conversations' => $syncedConvCount,
+            'synced_messages' => $syncedMsgCount,
+            'device_id' => $id,
+            'message' => 'Synchronization successfully completed.',
+        ];
+    }
+
+    /**
+     * Process an incoming message webhook payload from GOWA and persist to DB.
+     */
+    public function handleIncomingMessageWebhook(array $payload, ?string $deviceId = null): ?Message
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId ?: ($payload['device_id'] ?? null));
+
+        $data = $payload['payload'] ?? $payload;
+        $chatJid = $data['from'] ?? $data['chat_jid'] ?? $data['sender'] ?? null;
+
+        if (!$chatJid || str_contains($chatJid, 'broadcast')) {
+            $this->logInfo($m, 'Ignoring incoming message webhook without valid chat JID', ['data' => $data]);
+            return null;
+        }
+
+        $phone = preg_replace('/[^0-9]/', '', explode('@', $chatJid)[0]);
+        $pushName = $data['push_name'] ?? $data['sender_display_name'] ?? $data['name'] ?? null;
+        $isFromMe = (bool) ($data['is_from_me'] ?? false);
+        $text = $data['body'] ?? $data['content'] ?? $data['text'] ?? '';
+        $messageId = $data['id'] ?? $data['whatsapp_message_id'] ?? null;
+
+        $sentAt = now();
+        if (!empty($data['timestamp'])) {
+            try {
+                $sentAt = Carbon::parse($data['timestamp']);
+            } catch (Exception) {
+                $sentAt = now();
+            }
+        }
+
+        // Find or create conversation
+        $conversation = Conversation::firstOrCreate(
+            [
+                'device_id' => $id,
+                'chat_jid' => $chatJid,
+            ],
+            [
+                'name' => $pushName ?: $phone,
+                'phone' => $phone,
+                'status' => 'all',
+                'handler' => 'ai',
+                'unread_count' => 0,
+            ]
+        );
+
+        if ($pushName && empty($conversation->name)) {
+            $conversation->name = $pushName;
+        }
+
+        // Check duplicate message
+        if ($messageId) {
+            $existing = Message::where('conversation_id', $conversation->id)
+                ->where('whatsapp_message_id', $messageId)
+                ->first();
+            if ($existing) {
+                return $existing;
+            }
+        }
+
+        $message = Message::create([
+            'conversation_id' => $conversation->id,
+            'whatsapp_message_id' => $messageId,
+            'sender_type' => $isFromMe ? 'human' : 'customer',
+            'is_from_me' => $isFromMe,
+            'text' => $text,
+            'status' => 'delivered',
+            'sent_at' => $sentAt,
+            'meta' => $data,
+        ]);
+
+        $conversation->last_message = $text;
+        $conversation->last_message_time = $sentAt;
+        if (!$isFromMe) {
+            $conversation->unread_count += 1;
+        }
+        $conversation->save();
+
+        $this->logInfo($m, 'Incoming message processed and saved', [
+            'conversation_id' => $conversation->id,
+            'message_id' => $message->id,
+        ]);
+
+        return $message;
+    }
+
+    /**
+     * Format a conversation model into frontend-compatible payload.
+     */
+    protected function formatConversation(Conversation $c): array
+    {
+        $customerName = $c->name ?: $c->phone;
+
+        return [
+            'id' => $c->id,
+            'device_id' => $c->device_id,
+            'chat_jid' => $c->chat_jid,
+            'name' => $customerName,
+            'phone' => $c->phone,
+            'customer' => [
+                'id' => $c->id,
+                'name' => $customerName,
+                'phone' => $c->phone,
+                'meterNo' => $c->meta['meter_no'] ?? '-',
+                'segment' => $c->meta['segment'] ?? 'WhatsApp Contact',
+                'category' => $c->meta['category'] ?? 'General',
+                'status' => 'Active',
+            ],
+            'unreadCount' => (int) $c->unread_count,
+            'unread_count' => (int) $c->unread_count,
+            'status' => $c->status,
+            'handler' => $c->handler,
+            'lastMessage' => $c->last_message ?? '',
+            'last_message' => $c->last_message ?? '',
+            'lastMessageTime' => $c->last_message_time?->toIso8601String(),
+            'last_message_time' => $c->last_message_time?->toIso8601String(),
+            'messages' => $c->messages->map(fn(Message $m) => $this->formatMessage($m))->values()->all(),
+        ];
+    }
+
+    /**
+     * Format a message model into frontend-compatible payload.
+     */
+    protected function formatMessage(Message $m): array
+    {
+        return [
+            'id' => $m->id,
+            'conversation_id' => $m->conversation_id,
+            'whatsapp_message_id' => $m->whatsapp_message_id,
+            'sender' => $m->sender_type,
+            'sender_type' => $m->sender_type,
+            'is_from_me' => $m->is_from_me,
+            'text' => $m->text,
+            'time' => $m->sent_at?->toIso8601String(),
+            'sent_at' => $m->sent_at?->toIso8601String(),
+            'status' => $m->status,
+        ];
+    }
+}

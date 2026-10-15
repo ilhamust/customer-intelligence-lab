@@ -80,4 +80,26 @@ interface WhatsappGatewayService
      * @return bool
      */
     public function deleteDevice(string $deviceId): bool;
+
+    /**
+     * Get list of chats from GOWA.
+     *
+     * @param string|null $deviceId
+     * @param int $limit
+     * @param int $offset
+     * @return array
+     */
+    public function getChats(?string $deviceId = null, int $limit = 50, int $offset = 0): array;
+
+    /**
+     * Get list of messages for a specific chat from GOWA.
+     *
+     * @param string $chatJid
+     * @param string|null $deviceId
+     * @param int $limit
+     * @param int $offset
+     * @return array
+     */
+    public function getChatMessages(string $chatJid, ?string $deviceId = null, int $limit = 50, int $offset = 0): array;
 }
+

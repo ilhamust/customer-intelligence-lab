@@ -15,6 +15,11 @@ class AppServiceProvider extends ServiceProvider
             \App\Service\Whatsapp\Contracts\WhatsappGatewayService::class,
             \App\Service\Whatsapp\Implements\GowaGatewayServiceImpl::class
         );
+
+        $this->app->bind(
+            \App\Service\Bot\Contracts\ConversationService::class,
+            \App\Service\Bot\Implements\ConversationServiceImpl::class
+        );
     }
 
     /**
