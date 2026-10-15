@@ -21,25 +21,56 @@ const loading = ref(false)
 const qrImage = ref('')
 const countdown = ref(30)
 let timer = null
+let pollTimer = null
+
+const cleanupTimers = () => {
+  if (timer) clearInterval(timer)
+  if (pollTimer) clearInterval(pollTimer)
+  timer = null
+  pollTimer = null
+}
+
+const checkConnectionStatus = async () => {
+  if (!props.open || !props.device?.device_id) return
+
+  try {
+    const res = await p$device.a$getStatus(props.device.device_id)
+    const isConnected = res?.status === 'connected' || res?.is_logged_in === true
+
+    if (isConnected) {
+      cleanupTimers()
+      notify.success(`Perangkat ${props.device.name || props.device.device_id} berhasil terhubung!`)
+      await p$device.a$fetchList()
+      p$device.a$select(props.device.device_id)
+      emit('close')
+    }
+  } catch (_) {
+    // Ignore transient errors during polling
+  }
+}
 
 const fetchQr = async () => {
   if (!props.device?.device_id) return
   loading.value = true
   qrImage.value = ''
-  clearInterval(timer)
+  cleanupTimers()
 
   try {
     const res = await p$device.a$getLoginQr(props.device.device_id)
     qrImage.value = res?.qr_image || ''
     countdown.value = Number(res?.duration || 30)
 
+    // Countdown timer
     timer = setInterval(() => {
       if (countdown.value > 0) {
         countdown.value--
       } else {
-        clearInterval(timer)
+        cleanupTimers()
       }
     }, 1000)
+
+    // Poll status every 2 seconds
+    pollTimer = setInterval(checkConnectionStatus, 2000)
   } catch (e) {
     notify.error(e?.message ?? e ?? 'Gagal mengambil QR Code')
   } finally {
@@ -53,14 +84,14 @@ watch(
     if (val && props.device) {
       fetchQr()
     } else {
-      clearInterval(timer)
+      cleanupTimers()
       qrImage.value = ''
     }
   }
 )
 
 onBeforeUnmount(() => {
-  clearInterval(timer)
+  cleanupTimers()
 })
 </script>
 

@@ -127,6 +127,15 @@ export const useDeviceStore = defineStore('device', () => {
     }
   }
 
+  const a$getStatus = async (deviceId) => {
+    try {
+      const res = await s$device.status(deviceId)
+      return res?.data ?? res
+    } catch (e) {
+      throw e?.message ?? e
+    }
+  }
+
   const a$search = (query) => {
     searchQuery.value = query
   }
@@ -150,6 +159,7 @@ export const useDeviceStore = defineStore('device', () => {
     a$select,
     a$getLoginQr,
     a$getLoginCode,
+    a$getStatus,
     a$logout,
     a$reconnect,
     a$delete,

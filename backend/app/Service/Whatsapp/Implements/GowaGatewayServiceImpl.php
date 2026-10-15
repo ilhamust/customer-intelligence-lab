@@ -88,15 +88,23 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
             $status = $isLoggedIn ? 'connected' : ($isConnected ? 'pairing' : 'disconnected');
 
             // Sync with DB
-            WhatsappChannel::updateOrCreate(
-                ['device_id' => $id],
-                [
+            $channel = WhatsappChannel::where('device_id', $id)->first();
+            if ($channel) {
+                $channel->update([
+                    'status' => $status,
+                    'jid' => $jid,
+                    'phone_number' => $jid ? explode('@', $jid)[0] : $channel->phone_number,
+                ]);
+            } else {
+                WhatsappChannel::create([
+                    'device_id' => $id,
                     'name' => 'Gateway ' . $id,
                     'status' => $status,
                     'jid' => $jid,
                     'phone_number' => $jid ? explode('@', $jid)[0] : null,
-                ]
-            );
+                    'is_active' => true,
+                ]);
+            }
 
             return [
                 'device_id' => $id,
@@ -321,9 +329,12 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                 $response = $this->client()->get('/devices');
                 if ($response->successful()) {
                     $results = $response->json('results', []);
-                    foreach ($results as $item) {
-                        if (!empty($item['device_id'])) {
-                            $gowaDevices[$item['device_id']] = $item;
+                    if (is_array($results)) {
+                        foreach ($results as $item) {
+                            $devId = $item['id'] ?? $item['device_id'] ?? null;
+                            if (!empty($devId)) {
+                                $gowaDevices[$devId] = $item;
+                            }
                         }
                     }
                 }
@@ -339,17 +350,19 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
             // If DB is empty but GOWA has devices, sync them to DB
             if ($channels->isEmpty() && !empty($gowaDevices)) {
                 foreach ($gowaDevices as $devId => $devData) {
-                    $isConnected = (bool) ($devData['is_connected'] ?? false);
-                    $isLoggedIn = (bool) ($devData['is_logged_in'] ?? false);
+                    $state = strtolower($devData['state'] ?? '');
+                    $isLoggedIn = (bool) ($devData['is_logged_in'] ?? ($state === 'logged_in'));
+                    $isConnected = (bool) ($devData['is_connected'] ?? ($isLoggedIn || $state === 'connected' || $state === 'connecting' || $state === 'pairing'));
                     $jid = $devData['jid'] ?? null;
+                    $phone = $devData['phone_number'] ?? ($jid ? explode('@', $jid)[0] : null);
                     $status = $isLoggedIn ? 'connected' : ($isConnected ? 'pairing' : 'disconnected');
 
                     WhatsappChannel::create([
                         'device_id' => $devId,
-                        'name' => $devData['name'] ?? ('Gateway ' . $devId),
+                        'name' => $devData['display_name'] ?? $devData['name'] ?? ('Gateway ' . $devId),
                         'status' => $status,
                         'jid' => $jid,
-                        'phone_number' => $jid ? explode('@', $jid)[0] : null,
+                        'phone_number' => $phone,
                         'is_active' => true,
                     ]);
                 }
@@ -361,19 +374,31 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                 $gowaData = $gowaDevices[$channel->device_id] ?? null;
                 $status = $channel->status;
                 $jid = $channel->jid;
+                $phoneNumber = $channel->phone_number;
 
                 if ($gowaData) {
-                    $isConnected = (bool) ($gowaData['is_connected'] ?? false);
-                    $isLoggedIn = (bool) ($gowaData['is_logged_in'] ?? false);
+                    $state = strtolower($gowaData['state'] ?? '');
+                    $isLoggedIn = (bool) ($gowaData['is_logged_in'] ?? ($state === 'logged_in'));
+                    $isConnected = (bool) ($gowaData['is_connected'] ?? ($isLoggedIn || $state === 'connected' || $state === 'connecting' || $state === 'pairing'));
                     $status = $isLoggedIn ? 'connected' : ($isConnected ? 'pairing' : 'disconnected');
                     $jid = $gowaData['jid'] ?? $jid;
+                    $phoneNumber = $gowaData['phone_number'] ?? ($jid ? explode('@', $jid)[0] : $phoneNumber);
+
+                    // Sync updated status to DB if changed
+                    if ($channel->status !== $status || $channel->jid !== $jid || $channel->phone_number !== $phoneNumber) {
+                        $channel->update([
+                            'status' => $status,
+                            'jid' => $jid,
+                            'phone_number' => $phoneNumber,
+                        ]);
+                    }
                 }
 
                 return [
                     'id' => $channel->id,
                     'device_id' => $channel->device_id,
                     'name' => $channel->name,
-                    'phone_number' => $channel->phone_number,
+                    'phone_number' => $phoneNumber,
                     'jid' => $jid,
                     'status' => $status,
                     'is_active' => (bool) $channel->is_active,

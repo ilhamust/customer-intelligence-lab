@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 import { useDeviceStore } from '@/stores/app/device.store'
 import { notify } from '@/plugins'
 
@@ -20,10 +20,36 @@ const p$device = useDeviceStore()
 const loading = ref(false)
 const phone = ref('')
 const pairCode = ref('')
+let pollTimer = null
+
+const cleanupPoll = () => {
+  if (pollTimer) clearInterval(pollTimer)
+  pollTimer = null
+}
+
+const checkConnectionStatus = async () => {
+  if (!props.open || !props.device?.device_id) return
+
+  try {
+    const res = await p$device.a$getStatus(props.device.device_id)
+    const isConnected = res?.status === 'connected' || res?.is_logged_in === true
+
+    if (isConnected) {
+      cleanupPoll()
+      notify.success(`Perangkat ${props.device.name || props.device.device_id} berhasil terhubung!`)
+      await p$device.a$fetchList()
+      p$device.a$select(props.device.device_id)
+      emit('close')
+    }
+  } catch (_) {
+    // Ignore transient polling errors
+  }
+}
 
 watch(
   () => props.open,
   (val) => {
+    cleanupPoll()
     if (val) {
       phone.value = props.device?.phone_number || ''
       pairCode.value = ''
@@ -39,10 +65,15 @@ const handleGetCode = async () => {
   }
 
   loading.value = true
+  cleanupPoll()
+
   try {
     const res = await p$device.a$getLoginCode(props.device.device_id, cleanPhone)
     pairCode.value = res?.pair_code || ''
     notify.success('Kode pairing berhasil dibuat!')
+
+    // Poll status every 2.5 seconds
+    pollTimer = setInterval(checkConnectionStatus, 2500)
   } catch (e) {
     notify.error(e?.message ?? e ?? 'Gagal mendapatkan kode pairing')
   } finally {
@@ -58,6 +89,10 @@ const formatPairCode = (code) => {
   }
   return code
 }
+
+onBeforeUnmount(() => {
+  cleanupPoll()
+})
 </script>
 
 <template>
