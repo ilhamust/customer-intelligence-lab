@@ -2,12 +2,17 @@
 import { onMounted, ref } from 'vue'
 import { useConversationStore } from '@/stores/app/conversation.store'
 import { getInitials, formatRelativeTime, formatTime, formatPhone } from '@/utils/helper'
+import { notify } from '@/plugins'
 
 const p$conv = useConversationStore()
 const replyInput = ref('')
 
 onMounted(async () => {
-  await p$conv.a$fetchList()
+  try {
+    await p$conv.a$fetchList()
+  } catch (e) {
+    notify.error(e?.message ?? e ?? 'Gagal memuat percakapan')
+  }
 })
 
 const handleSearch = (e) => {
@@ -45,8 +50,8 @@ const handleSend = () => {
       <div class="p-4 space-y-3 shrink-0">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-           
-            <h2 class="font-bold text-sm text-base-content tracking-tight">WhatsApp Inbox</h2>          </div>
+            <h2 class="font-bold text-sm text-base-content tracking-tight">WhatsApp Inbox</h2>
+          </div>
         </div>
 
         <!-- Search Bar ala Gambar 2 -->
@@ -81,7 +86,10 @@ const handleSend = () => {
             @click="handleTabChange('unread')"
           >
             <span>Unread</span>
-            <span v-if="p$conv.g$conversations.filter(c => c.unreadCount > 0).length" class="text-[10px] px-1.5 py-0.2 rounded-full bg-primary/15 text-primary font-bold">
+            <span
+              v-if="p$conv.g$conversations.filter(c => c.unreadCount > 0).length"
+              class="min-w-4.5 h-4.5 px-1 rounded-full bg-primary text-primary-content font-bold text-[10px] flex items-center justify-center shadow-xs"
+            >
               {{ p$conv.g$conversations.filter(c => c.unreadCount > 0).length }}
             </span>
           </button>
@@ -148,9 +156,9 @@ const handleSend = () => {
     </section>
 
     <!-- ─── Kolom Kanan: Ruang Obrolan Aktif (Chat Room) ────────── -->
-    <section class="flex-1 flex flex-col h-full bg-base-200/30 relative min-w-0">
+    <section class="flex-1 flex flex-col h-full bg-base-200 relative min-w-0">
       <!-- Empty State ala Gambar 2 (Theme Tokens) -->
-      <div v-if="!p$conv.g$activeConversation" class="flex-1 flex flex-col items-center justify-center p-8 bg-base-100 space-y-4 select-none">
+      <div v-if="!p$conv.g$activeConversation" class="flex-1 flex flex-col items-center justify-center p-8 bg-base-200 space-y-4 select-none">
         <div class="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -163,7 +171,7 @@ const handleSend = () => {
         </div>
 
         <div class="pt-6">
-          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-base-200/60 border border-base-300/40 text-[11px] text-base-content/45 font-medium">
+          <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-base-100 border border-base-300/40 text-[11px] text-base-content/45 font-medium">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-base-content/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -207,7 +215,7 @@ const handleSend = () => {
         <div class="flex-1 overflow-y-auto p-6 space-y-3.5">
           <!-- Date Separator -->
           <div class="flex justify-center my-2">
-            <span class="px-3 py-1 rounded-full text-[10px] font-medium bg-base-100 border border-base-300/40 text-base-content/50 shadow-2xs">
+            <span class="px-3 py-1 rounded-full text-[10px] font-medium bg-base-100 dark:bg-base-300 border border-base-300/40 text-base-content/50 shadow-2xs">
               Hari ini
             </span>
           </div>
@@ -219,10 +227,10 @@ const handleSend = () => {
             class="flex"
             :class="[msg.sender === 'customer' ? 'justify-start' : 'justify-end']"
           >
-            <!-- Inbound (Customer Bubble - Warna Pekat Solid Tanpa Outline) -->
+            <!-- Inbound (Customer Bubble - Warna Pekat Solid, Berkontras Tinggi di Dark Mode) -->
             <div
               v-if="msg.sender === 'customer'"
-              class="max-w-md bg-base-100 text-base-content rounded-2xl rounded-tl-xs p-3 px-3.5 shadow-sm space-y-1"
+              class="max-w-md bg-base-100 dark:bg-base-300 text-base-content rounded-2xl rounded-tl-xs p-3 px-3.5 shadow-sm space-y-1"
             >
               <p class="text-xs leading-relaxed text-base-content select-text whitespace-pre-wrap">
                 {{ msg.text }}
