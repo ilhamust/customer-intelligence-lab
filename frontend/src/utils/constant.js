@@ -11,4 +11,5 @@ export const endpoint = {
   knowledge: '/api/v1/knowledge-articles',
   dashboard: '/api/v1/dashboard',
   simulator: '/api/v1/sim/messages',
+  whatsapp: '/api/v1/whatsapp',
 }
