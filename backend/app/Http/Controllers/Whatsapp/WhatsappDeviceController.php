@@ -25,6 +25,25 @@ class WhatsappDeviceController extends Controller
     ) {}
 
     /**
+     * List all registered WhatsApp devices.
+     */
+    public function index(Request $request): DataResource|ErrorResource|InternalErrorResource
+    {
+        $ctx = __METHOD__;
+
+        try {
+            $devices = $this->whatsappService->listDevices();
+            return $this->respondWithData($devices, 'Successfully retrieved WhatsApp devices');
+        } catch (BadRequestException $e) {
+            return $this->handleBadRequest($e, $ctx);
+        } catch (InternalServerException $e) {
+            return $this->handleInternal($e, $ctx);
+        } catch (Exception $e) {
+            return $this->handleUnexpected($e, $ctx, 'Failed to fetch WhatsApp devices.');
+        }
+    }
+
+    /**
      * Get connection and login status of WhatsApp device.
      */
     public function status(Request $request): DataResource|ErrorResource|InternalErrorResource
@@ -155,6 +174,30 @@ class WhatsappDeviceController extends Controller
             return $this->handleInternal($e, $ctx);
         } catch (Exception $e) {
             return $this->handleUnexpected($e, $ctx, 'Failed to reconnect device.');
+        }
+    }
+
+    /**
+     * Delete a WhatsApp device from GOWA and database.
+     */
+    public function destroy(string $deviceId): DataResource|ErrorResource|InternalErrorResource
+    {
+        $ctx = __METHOD__;
+
+        try {
+            $success = $this->whatsappService->deleteDevice($deviceId);
+            return $this->respondWithData(
+                ['device_id' => $deviceId, 'deleted' => $success],
+                'Device successfully deleted'
+            );
+        } catch (NotFoundException $e) {
+            return $this->handleNotFound($e, $ctx);
+        } catch (BadRequestException $e) {
+            return $this->handleBadRequest($e, $ctx);
+        } catch (InternalServerException $e) {
+            return $this->handleInternal($e, $ctx);
+        } catch (Exception $e) {
+            return $this->handleUnexpected($e, $ctx, 'Failed to delete WhatsApp device.');
         }
     }
 }

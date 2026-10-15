@@ -306,4 +306,119 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
             $this->registerDevice($deviceId, 'Gateway ' . $deviceId);
         }
     }
+
+    /**
+     * Get list of all registered WhatsApp devices and their current status.
+     */
+    public function listDevices(): array
+    {
+        $m = __METHOD__;
+
+        try {
+            // First check GOWA API if devices exist
+            $gowaDevices = [];
+            try {
+                $response = $this->client()->get('/devices');
+                if ($response->successful()) {
+                    $results = $response->json('results', []);
+                    foreach ($results as $item) {
+                        if (!empty($item['device_id'])) {
+                            $gowaDevices[$item['device_id']] = $item;
+                        }
+                    }
+                }
+            } catch (Exception $e) {
+                $this->logWarning($m, 'Could not fetch device list directly from GOWA, falling back to database', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            // Sync with DB
+            $channels = WhatsappChannel::orderBy('created_at', 'desc')->get();
+
+            // If DB is empty but GOWA has devices, sync them to DB
+            if ($channels->isEmpty() && !empty($gowaDevices)) {
+                foreach ($gowaDevices as $devId => $devData) {
+                    $isConnected = (bool) ($devData['is_connected'] ?? false);
+                    $isLoggedIn = (bool) ($devData['is_logged_in'] ?? false);
+                    $jid = $devData['jid'] ?? null;
+                    $status = $isLoggedIn ? 'connected' : ($isConnected ? 'pairing' : 'disconnected');
+
+                    WhatsappChannel::create([
+                        'device_id' => $devId,
+                        'name' => $devData['name'] ?? ('Gateway ' . $devId),
+                        'status' => $status,
+                        'jid' => $jid,
+                        'phone_number' => $jid ? explode('@', $jid)[0] : null,
+                        'is_active' => true,
+                    ]);
+                }
+                $channels = WhatsappChannel::orderBy('created_at', 'desc')->get();
+            }
+
+            // Map and format results
+            return $channels->map(function ($channel) use ($gowaDevices) {
+                $gowaData = $gowaDevices[$channel->device_id] ?? null;
+                $status = $channel->status;
+                $jid = $channel->jid;
+
+                if ($gowaData) {
+                    $isConnected = (bool) ($gowaData['is_connected'] ?? false);
+                    $isLoggedIn = (bool) ($gowaData['is_logged_in'] ?? false);
+                    $status = $isLoggedIn ? 'connected' : ($isConnected ? 'pairing' : 'disconnected');
+                    $jid = $gowaData['jid'] ?? $jid;
+                }
+
+                return [
+                    'id' => $channel->id,
+                    'device_id' => $channel->device_id,
+                    'name' => $channel->name,
+                    'phone_number' => $channel->phone_number,
+                    'jid' => $jid,
+                    'status' => $status,
+                    'is_active' => (bool) $channel->is_active,
+                    'created_at' => $channel->created_at?->toIso8601String(),
+                    'updated_at' => $channel->updated_at?->toIso8601String(),
+                ];
+            })->all();
+        } catch (Exception $e) {
+            $this->logError($m, 'Failed to list WhatsApp devices', ['error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Delete a device from GOWA and database.
+     */
+    public function deleteDevice(string $deviceId): bool
+    {
+        $m = __METHOD__;
+
+        $channel = WhatsappChannel::where('device_id', $deviceId)->first();
+        if (!$channel) {
+            throw new NotFoundException("WhatsApp device [{$deviceId}] not found.");
+        }
+
+        try {
+            // Delete from GOWA
+            $response = $this->client()->delete("/devices/{$deviceId}");
+            if (!$response->successful() && $response->status() !== 404) {
+                $this->logWarning($m, 'Failed to delete device in GOWA, proceeding with DB removal', [
+                    'device_id' => $deviceId,
+                    'status' => $response->status(),
+                ]);
+            }
+        } catch (Exception $e) {
+            $this->logWarning($m, 'Error calling GOWA delete device endpoint', [
+                'device_id' => $deviceId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $channel->delete();
+
+        $this->logInfo($m, 'Device deleted successfully', ['device_id' => $deviceId]);
+
+        return true;
+    }
 }

@@ -65,4 +65,19 @@ interface WhatsappGatewayService
      * @return bool
      */
     public function sendText(string $phone, string $message, ?string $deviceId = null): bool;
+
+    /**
+     * Get list of all registered WhatsApp devices and their current status.
+     *
+     * @return array
+     */
+    public function listDevices(): array;
+
+    /**
+     * Delete a device from GOWA and remove from database.
+     *
+     * @param string $deviceId
+     * @return bool
+     */
+    public function deleteDevice(string $deviceId): bool;
 }
