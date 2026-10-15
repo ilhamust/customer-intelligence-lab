@@ -25,22 +25,10 @@ onMounted(() => {
 
 <template>
   <header class="h-16 bg-base-100 border-b border-base-300 px-6 flex items-center justify-between shrink-0 select-none z-20">
-    <!-- Left Section: Search Input ala Referensi Consist -->
-    <div class="flex items-center gap-4 flex-1 max-w-lg">
-      <div class="relative w-full">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-base-content/40 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
-        <input
-          type="text"
-          placeholder="Search data, tickets, or customers..."
-          class="input input-sm w-full bg-base-200 border-0 rounded-full pl-10 pr-4 text-xs text-base-content placeholder:text-base-content/40 focus:outline-none focus:ring-1 focus:ring-primary focus:bg-base-100 transition-all"
-        />
-      </div>
-    </div>
+    <!-- Left Section: Spacer -->
+    <div></div>
 
-    <!-- Right Controls ala Referensi Consist -->
+    <!-- Right Controls -->
     <div class="flex items-center gap-3">
       <!-- Theme Switcher -->
       <button
@@ -60,18 +48,6 @@ onMounted(() => {
         <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
         </svg>
-      </button>
-
-      <!-- Notification Bell -->
-      <button
-        class="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-base-content hover:bg-base-200 relative"
-        title="Notifications"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-        </svg>
-        <span class="w-2 h-2 rounded-full bg-accent absolute top-2 right-2"></span>
       </button>
 
       <div class="h-6 w-px bg-base-300 mx-1"></div>

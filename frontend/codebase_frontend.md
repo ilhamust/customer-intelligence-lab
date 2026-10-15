@@ -594,15 +594,23 @@ Gaya visual yang digunakan pada aplikasi ini mengacu pada standar **Modern Flat 
   - Saat kursor lepas (`@mouseleave`), kembali ke `w-18`.
 
 #### 3. Standar Topbar / Navbar (`AppNavbar.vue`)
-- **Tinggi & Batas**: `h-16` (64px) dengan `bg-base-100 border-b border-base-300 px-6`.
-- **Bilah Pencarian Global**: Kapsul lonjong (*rounded-full*) di sisi kiri:
-  ```html
-  <input type="text" placeholder="Cari..." class="input input-sm w-full bg-base-200 border-0 rounded-full pl-10 pr-4 text-xs" />
-  ```
-- **Kontrol Kanan**: Tombol theme switcher, notifikasi (dengan dot kuning `bg-accent`), pemisah garis tipis vertikal `h-6 w-px bg-base-300`, dan pil profil pengguna (avatar gradasi bulat + nama + jabatan).
+- **Tinggi & Batas**: `h-16` (64px) dengan `bg-base-100 border-b border-base-300 px-6 flex items-center justify-between`.
+- **Tata Letak Bersih**: Sisi kiri dibiarkan bersih (*spacer/empty*), tanpa search bar dan tanpa notifikasi di top bar.
+- **Kontrol Kanan**: Tombol theme switcher (`light`/`dark`), pemisah garis tipis vertikal `h-6 w-px bg-base-300`, dan pil profil pengguna (avatar gradasi bulat + nama + jabatan).
+- **Larangan Hover**: Dilarang memberikan efek hover perubahan warna tosca pada profil pengguna.
 
-#### 4. Aturan Pembuatan Halaman Baru
-Setiap kali menambahkan halaman baru (misal: `/app/customers`, `/app/tickets`, `/app/dashboard`):
+#### 4. Standar Tipografi Tunggal (Single Font Family: `Plus Jakarta Sans`)
+- **Hanya Satu Font Family**: Seluruh aplikasi wajib menggunakan satu famili font tunggal yaitu **Plus Jakarta Sans** (memuat bobot 300 hingga 900).
+- **Dilarang Mencampur Font**: Dilarang keras memakai `font-mono`, serif, atau font lain pada timestamps, ID perangkat, kode pairing, atau teks tabel.
+- **Hierarki Melalui Weight & Opacity**:
+  - Judul / Brand: `font-black` atau `font-bold` dengan `tracking-tight`.
+  - Header Menu / Label: `font-bold` atau `font-extrabold` huruf kapital `text-[10px] text-base-content/40 tracking-wider`.
+  - Tombol & Menu Aktif: `font-semibold` atau `font-bold`.
+  - Konten & Teks Tubuh: `font-medium` atau `font-normal`.
+  - Angka, ID, & Waktu: Gunakan `tabular-nums font-medium` agar angka tersusun rapi tanpa perlu font mesin ketik (*mono*).
+
+#### 5. Aturan Pembuatan Halaman Baru
+Setiap kali menambahkan halaman baru (misal: `/app/customers`, `/app/tickets`, `/app/dashboard`, `/app/devices`):
 - Jangan buat halaman satu lembar putih polos menempel ke pinggir.
 - Bungkus selalu dengan `div class="h-full p-4 flex flex-col gap-4 bg-base-200 overflow-y-auto"`.
 - Tempatkan tabel atau ringkasan data di dalam kartu `BaseCard` atau container `bg-base-100 rounded-2xl border border-base-300 shadow-xs p-5`.

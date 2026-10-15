@@ -135,7 +135,7 @@ const handleSend = () => {
               <h3 class="font-semibold text-xs text-base-content truncate">
                 {{ chat.customer.name }}
               </h3>
-              <span class="text-[10px] text-base-content/40 font-mono shrink-0 ml-2">
+              <span class="text-[10px] text-base-content/40 font-medium tabular-nums shrink-0 ml-2">
                 {{ formatRelativeTime(chat.lastMessageTime) }}
               </span>
             </div>
@@ -196,7 +196,7 @@ const handleSend = () => {
               <h2 class="font-semibold text-xs text-base-content truncate leading-tight">
                 {{ p$conv.g$activeConversation.customer.name }}
               </h2>
-              <p class="text-[11px] text-base-content/45 font-mono leading-tight mt-0.5">
+              <p class="text-[11px] text-base-content/45 font-medium tabular-nums leading-tight mt-0.5">
                 {{ formatPhone(p$conv.g$activeConversation.customer.phone) }}
               </p>
             </div>
@@ -235,7 +235,7 @@ const handleSend = () => {
               <p class="text-xs leading-relaxed text-base-content select-text whitespace-pre-wrap">
                 {{ msg.text }}
               </p>
-              <div class="flex items-center justify-end text-[10px] text-base-content/50 font-mono pt-0.5">
+              <div class="flex items-center justify-end text-[10px] text-base-content/50 font-medium tabular-nums pt-0.5">
                 <span>{{ formatTime(msg.time) }}</span>
               </div>
             </div>
@@ -249,7 +249,7 @@ const handleSend = () => {
                 {{ msg.text }}
               </p>
 
-              <div class="flex items-center justify-end gap-1.5 text-[10px] text-primary-content/80 font-mono pt-0.5">
+              <div class="flex items-center justify-end gap-1.5 text-[10px] text-primary-content/80 font-medium tabular-nums pt-0.5">
                 <span>{{ formatTime(msg.time) }}</span>
                 <!-- Double Checkmark Icon -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-primary-content" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">

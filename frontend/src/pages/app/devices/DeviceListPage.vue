@@ -228,10 +228,10 @@ const handleOpenCode = (device) => {
               </BaseBadge>
             </div>
 
-            <!-- Card Middle: Monospace ID & Created Date -->
+            <!-- Card Middle: Unified ID & Created Date -->
             <div class="mt-4 pt-3.5 pb-1 border-t border-base-300/80 space-y-1">
-              <p class="text-[11px] font-mono text-base-content/60 truncate select-all">
-                <span class="text-base-content/40 font-sans font-medium">ID:</span> {{ device.device_id }}
+              <p class="text-[11px] text-base-content/60 truncate select-all">
+                <span class="text-base-content/40 font-medium">ID:</span> <span class="font-semibold text-base-content/75">{{ device.device_id }}</span>
               </p>
               <p class="text-[11px] text-base-content/50">
                 Created {{ formatDateTime(device.created_at) }}

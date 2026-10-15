@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
         <div v-else class="space-y-4 text-center">
           <div class="p-5 bg-base-200 rounded-2xl border border-base-300 shadow-inner">
             <p class="text-[11px] font-bold text-base-content/60 uppercase tracking-wider mb-2">Your Pairing Code</p>
-            <div class="font-mono font-black text-2xl tracking-widest text-primary select-all">
+            <div class="font-black text-3xl tracking-widest text-primary select-all tabular-nums">
               {{ formatPairCode(pairCode) }}
             </div>
           </div>
