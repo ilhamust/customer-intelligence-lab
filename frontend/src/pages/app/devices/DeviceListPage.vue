@@ -3,6 +3,9 @@ import { onMounted, ref } from 'vue'
 import { useDeviceStore } from '@/stores/app/device.store'
 import { formatDateTime, formatPhone } from '@/utils/helper'
 import { notify } from '@/plugins'
+import DeviceCreateModal from './components/DeviceCreateModal.vue'
+import DeviceQrModal from './components/DeviceQrModal.vue'
+import DeviceCodeModal from './components/DeviceCodeModal.vue'
 
 const p$device = useDeviceStore()
 const searchInput = ref('')
@@ -364,6 +367,25 @@ const handleOpenCode = (device) => {
       :loading="deleteLoading"
       @confirm="executeDelete"
       @cancel="showDeleteDialog = false"
+    />
+
+    <!-- ─── Modals with Blurred Backdrop ─────────────────────── -->
+    <DeviceCreateModal
+      :open="showAddModal"
+      @close="showAddModal = false"
+      @created="fetchDevices"
+    />
+
+    <DeviceQrModal
+      :open="showQrModal"
+      :device="activeDevice"
+      @close="showQrModal = false"
+    />
+
+    <DeviceCodeModal
+      :open="showCodeModal"
+      :device="activeDevice"
+      @close="showCodeModal = false"
     />
   </div>
 </template>
