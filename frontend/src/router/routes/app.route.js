@@ -11,6 +11,11 @@ export default [
         name: 'Conversations',
         component: () => import('@/pages/app/conversations/ConversationListPage.vue'),
       },
+      {
+        path: 'devices',
+        name: 'Devices',
+        component: () => import('@/pages/app/devices/DeviceListPage.vue'),
+      },
     ],
   },
 ]
