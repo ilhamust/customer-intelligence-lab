@@ -1,6 +1,9 @@
 services:
     laravel.test:
-        image: 'laravelsail/php84-composer:latest'
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: 'jarvis-laravel:8.4'
         extra_hosts:
             - 'host.docker.internal:host-gateway'
         ports:
