@@ -29,6 +29,10 @@ services:
                 condition: service_healthy
             gowa:
                 condition: service_started
+        deploy:
+            resources:
+                limits:
+                    memory: 512M
 
     pgsql:
         image: 'pgvector/pgvector:pg18'
@@ -42,6 +46,10 @@ services:
             - 'sail-pgsql:/var/lib/postgresql'
         networks:
             - sail
+        deploy:
+            resources:
+                limits:
+                    memory: 512M
 
     redis:
         image: 'redis:alpine'
@@ -56,6 +64,10 @@ services:
             test: ["CMD", "redis-cli", "ping"]
             retries: 3
             timeout: 5s
+        deploy:
+            resources:
+                limits:
+                    memory: 128M
 
     gowa:
         build:
@@ -92,6 +104,10 @@ services:
             - sail
         extra_hosts:
             - 'host.docker.internal:host-gateway'
+        deploy:
+            resources:
+                limits:
+                    memory: 256M
 networks:
     sail:
         driver: bridge
