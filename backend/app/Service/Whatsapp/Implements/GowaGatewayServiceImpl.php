@@ -1,0 +1,309 @@
+<?php
+
+namespace App\Service\Whatsapp\Implements;
+
+use App\Exceptions\BadRequestException;
+use App\Exceptions\InternalServerException;
+use App\Exceptions\NotFoundException;
+use App\Models\Bot\WhatsappChannel;
+use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
+use App\Traits\ServiceHelper;
+use Exception;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Http;
+
+class GowaGatewayServiceImpl implements WhatsappGatewayService
+{
+    use ServiceHelper;
+
+    protected string $baseUrl;
+    protected string $username;
+    protected string $password;
+    protected string $defaultDeviceId;
+    protected string $webhookSecret;
+    protected ?string $webhookUrl;
+
+    public function __construct()
+    {
+        $this->baseUrl = (string) config('services.gowa.base_url', 'http://gowa:3000');
+        $this->username = (string) config('services.gowa.username', 'user1');
+        $this->password = (string) config('services.gowa.password', 'pass1');
+        $this->defaultDeviceId = (string) config('services.gowa.default_device_id', 'default');
+        $this->webhookSecret = (string) config('services.gowa.webhook_secret', '');
+        $this->webhookUrl = config('services.gowa.target_webhook_url');
+    }
+
+    /**
+     * Create an authenticated HTTP client for GOWA API calls.
+     */
+    protected function client(): PendingRequest
+    {
+        return Http::baseUrl($this->baseUrl)
+            ->withBasicAuth($this->username, $this->password)
+            ->timeout(15);
+    }
+
+    /**
+     * Resolve device ID falling back to default device if null.
+     */
+    protected function resolveDeviceId(?string $deviceId): string
+    {
+        return $deviceId ?: $this->defaultDeviceId;
+    }
+
+    /**
+     * Get connection and login status of a device.
+     */
+    public function getStatus(?string $deviceId = null): array
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId);
+
+        try {
+            $response = $this->client()->get("/devices/{$id}/status");
+
+            if ($response->status() === 404 || str_contains($response->body(), 'not found')) {
+                // Device not found in GOWA, mark DB record as disconnected
+                WhatsappChannel::where('device_id', $id)->update(['status' => 'disconnected']);
+                return [
+                    'device_id' => $id,
+                    'is_registered' => false,
+                    'is_connected' => false,
+                    'is_logged_in' => false,
+                    'status' => 'disconnected',
+                    'jid' => null,
+                ];
+            }
+
+            if (!$response->successful()) {
+                throw new InternalServerException('Failed to get device status from GOWA: ' . $response->body());
+            }
+
+            $results = $response->json('results', []);
+            $isConnected = (bool) ($results['is_connected'] ?? false);
+            $isLoggedIn = (bool) ($results['is_logged_in'] ?? false);
+            $jid = $results['jid'] ?? null;
+
+            $status = $isLoggedIn ? 'connected' : ($isConnected ? 'pairing' : 'disconnected');
+
+            // Sync with DB
+            WhatsappChannel::updateOrCreate(
+                ['device_id' => $id],
+                [
+                    'name' => 'Gateway ' . $id,
+                    'status' => $status,
+                    'jid' => $jid,
+                    'phone_number' => $jid ? explode('@', $jid)[0] : null,
+                ]
+            );
+
+            return [
+                'device_id' => $id,
+                'is_registered' => true,
+                'is_connected' => $isConnected,
+                'is_logged_in' => $isLoggedIn,
+                'status' => $status,
+                'jid' => $jid,
+            ];
+        } catch (Exception $e) {
+            $this->logError($m, 'Error fetching device status', ['device_id' => $id, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Register a new device in GOWA and database.
+     */
+    public function registerDevice(string $deviceId, string $name): WhatsappChannel
+    {
+        $m = __METHOD__;
+
+        $targetWebhook = $this->webhookUrl ?: url('/api/v1/webhooks/whatsapp');
+
+        $response = $this->client()->post('/devices', [
+            'device_id' => $deviceId,
+            'webhook_url' => $targetWebhook,
+            'webhook_secret' => $this->webhookSecret,
+            'webhook_events' => 'message,message.ack',
+            'webhook_insecure_skip_verify' => false,
+        ]);
+
+        if (!$response->successful() && $response->status() !== 409) {
+            $this->logError($m, 'Failed to register device in GOWA', [
+                'device_id' => $deviceId,
+                'response' => $response->body(),
+            ]);
+            throw new BadRequestException('Failed to register device in GOWA: ' . $response->body());
+        }
+
+        $channel = WhatsappChannel::updateOrCreate(
+            ['device_id' => $deviceId],
+            [
+                'name' => $name,
+                'status' => 'disconnected',
+                'is_active' => true,
+            ]
+        );
+
+        $this->logInfo($m, 'Device registered successfully', ['device_id' => $deviceId, 'name' => $name]);
+
+        return $channel;
+    }
+
+    /**
+     * Request QR Code login and convert in-memory to Base64 data URL.
+     */
+    public function getLoginQr(string $deviceId): array
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId);
+
+        // Ensure device is registered first
+        $this->ensureDeviceExists($id);
+
+        $response = $this->client()->get("/devices/{$id}/login");
+
+        if (!$response->successful()) {
+            $this->logError($m, 'Failed to request login QR from GOWA', [
+                'device_id' => $id,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new BadRequestException('Failed to get QR code: ' . $response->json('message', $response->body()));
+        }
+
+        $results = $response->json('results', []);
+        $qrLink = $results['qr_link'] ?? null;
+        $duration = (int) ($results['qr_duration'] ?? 30);
+
+        if (!$qrLink) {
+            throw new InternalServerException('QR link missing from GOWA response');
+        }
+
+        // Download QR image into memory
+        $imageResponse = $this->client()->get($qrLink);
+
+        if (!$imageResponse->successful()) {
+            throw new InternalServerException('Failed to download QR code image from GOWA');
+        }
+
+        // Convert in-memory bytes to Base64 Data URL (zero disk footprint)
+        $base64Image = 'data:image/png;base64,' . base64_encode($imageResponse->body());
+
+        WhatsappChannel::where('device_id', $id)->update(['status' => 'pairing']);
+
+        $this->logInfo($m, 'Login QR generated in-memory', ['device_id' => $id, 'duration' => $duration]);
+
+        return [
+            'device_id' => $id,
+            'qr_image' => $base64Image,
+            'duration' => $duration,
+        ];
+    }
+
+    /**
+     * Login using an 8-character pairing code.
+     */
+    public function loginWithCode(string $deviceId, string $phone): array
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId);
+
+        $this->ensureDeviceExists($id);
+
+        $response = $this->client()->post("/devices/{$id}/login/code?phone={$phone}");
+
+        if (!$response->successful()) {
+            throw new BadRequestException('Failed to get pairing code: ' . $response->json('message', $response->body()));
+        }
+
+        $results = $response->json('results', []);
+        $pairCode = $results['pair_code'] ?? '';
+
+        WhatsappChannel::where('device_id', $id)->update(['status' => 'pairing', 'phone_number' => $phone]);
+
+        $this->logInfo($m, 'Pairing code generated', ['device_id' => $id, 'phone' => $phone]);
+
+        return [
+            'device_id' => $id,
+            'pair_code' => $pairCode,
+        ];
+    }
+
+    /**
+     * Logout and clear WhatsApp session.
+     */
+    public function logout(string $deviceId): bool
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId);
+
+        $response = $this->client()->post("/devices/{$id}/logout");
+
+        WhatsappChannel::where('device_id', $id)->update([
+            'status' => 'disconnected',
+            'jid' => null,
+        ]);
+
+        $this->logInfo($m, 'Device logged out', ['device_id' => $id]);
+
+        return $response->successful();
+    }
+
+    /**
+     * Reconnect device to WhatsApp.
+     */
+    public function reconnect(string $deviceId): bool
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId);
+
+        $response = $this->client()->post("/devices/{$id}/reconnect");
+
+        $this->logInfo($m, 'Device reconnect requested', ['device_id' => $id]);
+
+        return $response->successful();
+    }
+
+    /**
+     * Send outgoing text message via GOWA REST API.
+     */
+    public function sendText(string $phone, string $message, ?string $deviceId = null): bool
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId);
+
+        $response = $this->client()
+            ->withHeaders(['X-Device-Id' => $id])
+            ->post('/send/message', [
+                'phone' => $phone,
+                'message' => $message,
+            ]);
+
+        if (!$response->successful()) {
+            $this->logError($m, 'Failed to send text message via GOWA', [
+                'device_id' => $id,
+                'phone' => $phone,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            return false;
+        }
+
+        $this->logInfo($m, 'WhatsApp message sent successfully', ['device_id' => $id, 'phone' => $phone]);
+
+        return true;
+    }
+
+    /**
+     * Helper to auto-create device in GOWA if not registered yet.
+     */
+    protected function ensureDeviceExists(string $deviceId): void
+    {
+        $check = $this->client()->get("/devices/{$deviceId}");
+        if ($check->status() === 404) {
+            $this->registerDevice($deviceId, 'Gateway ' . $deviceId);
+        }
+    }
+}

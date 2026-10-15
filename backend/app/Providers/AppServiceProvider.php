@@ -11,7 +11,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(
+            \App\Service\Whatsapp\Contracts\WhatsappGatewayService::class,
+            \App\Service\Whatsapp\Implements\GowaGatewayServiceImpl::class
+        );
     }
 
     /**
