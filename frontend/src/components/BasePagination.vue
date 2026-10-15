@@ -47,9 +47,9 @@ const goToPage = (page) => {
     <!-- Meta Summary -->
     <div class="text-xs text-base-content/60 font-medium">
       <span v-if="total > 0">
-        Menampilkan <strong class="text-base-content">{{ from }}</strong> - <strong class="text-base-content">{{ to }}</strong> dari <strong class="text-base-content">{{ total }}</strong> data
+        Showing <strong class="text-base-content">{{ from }}</strong> - <strong class="text-base-content">{{ to }}</strong> of <strong class="text-base-content">{{ total }}</strong> items
       </span>
-      <span v-else>Tidak ada data</span>
+      <span v-else>No items</span>
     </div>
 
     <!-- Page Buttons -->

@@ -34,11 +34,11 @@ export const formatRelativeTime = (timestamp) => {
   const timeStr = `${hours}:${minutes}`
 
   if (isToday) return timeStr
-  if (isYesterday) return 'Kemarin'
+  if (isYesterday) return 'Yesterday'
 
-  // Jika tahun sama
+  // If same year
   const day = date.getDate()
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const month = months[date.getMonth()]
 
   if (date.getFullYear() === now.getFullYear()) {

@@ -11,7 +11,7 @@ onMounted(async () => {
   try {
     await p$conv.a$fetchList()
   } catch (e) {
-    notify.error(e?.message ?? e ?? 'Gagal memuat percakapan')
+    notify.error(e?.message ?? e ?? 'Failed to load conversations')
   }
 })
 
@@ -100,14 +100,14 @@ const handleSend = () => {
       <div class="flex-1 overflow-y-auto px-2 space-y-1">
         <!-- Loading State -->
         <div v-if="p$conv.g$loading" class="p-8">
-          <BaseLoading text="Memuat percakapan..." />
+          <BaseLoading text="Loading conversations..." />
         </div>
 
         <!-- Empty State -->
         <div v-else-if="p$conv.g$filteredList.length === 0" class="p-8">
           <BaseEmpty
             title="No conversations found"
-            description="Tidak ada pesan yang cocok dengan pencarian Anda."
+            description="No messages match your search query."
           />
         </div>
 
@@ -216,7 +216,7 @@ const handleSend = () => {
           <!-- Date Separator -->
           <div class="flex justify-center my-2">
             <span class="px-3 py-1 rounded-full text-[10px] font-medium bg-base-100 dark:bg-base-300 border border-base-300 text-base-content/50 shadow-2xs">
-              Hari ini
+              Today
             </span>
           </div>
 
@@ -265,7 +265,7 @@ const handleSend = () => {
         <footer class="p-3 px-4 bg-base-100 border-t border-base-300 shrink-0">
           <div class="flex items-center gap-2">
             <!-- Attachment Icon -->
-            <button class="btn btn-ghost btn-circle btn-sm text-base-content/50 hover:text-base-content" title="Lampirkan berkas">
+            <button class="btn btn-ghost btn-circle btn-sm text-base-content/50 hover:text-base-content" title="Attach file">
               <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
               </svg>
@@ -276,7 +276,7 @@ const handleSend = () => {
               v-model="replyInput"
               @keydown.enter="handleSend"
               type="text"
-              placeholder="Tulis pesan..."
+              placeholder="Type a message..."
               class="input input-sm flex-1 focus:outline-none text-xs rounded-xl bg-base-200 border-0 focus:ring-1 focus:ring-base-content/20 text-base-content placeholder:text-base-content/40 px-3.5"
             />
 
@@ -292,7 +292,7 @@ const handleSend = () => {
                   : 'bg-base-300 text-base-content/60 border border-base-300/80'
               ]"
             >
-              <span>Kirim</span>
+              <span>Send</span>
               <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="m22 2-7 20-4-9-9-4Z" />
                 <path d="M22 2 11 13" />

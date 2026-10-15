@@ -122,7 +122,7 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
         v-if="isExpanded"
         @click="$emit('toggle')"
         class="btn btn-ghost btn-xs btn-circle text-base-content/40 hover:text-base-content hover:bg-base-200"
-        :title="isCollapsed ? 'Kunci perluas sidebar' : 'Perkecil sidebar'"
+        :title="isCollapsed ? 'Lock sidebar expanded' : 'Collapse sidebar'"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path v-if="isCollapsed" d="m9 18 6-6-6-6" />
@@ -172,7 +172,7 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
         <!-- Disabled / Coming Soon Item -->
         <div
           v-else
-          :title="`${menu.name} (Segera Hadir)`"
+          :title="`${menu.name} (Coming Soon)`"
           class="flex items-center rounded-xl text-xs text-base-content/30 cursor-not-allowed font-medium transition-colors"
           :class="[
             isExpanded ? 'gap-3 px-3.5 py-2.5 w-full' : 'justify-center w-11 h-11 mx-auto'
@@ -223,7 +223,7 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
         </div>
         <p class="text-xs font-semibold leading-tight">Customer Intelligence AI Bot</p>
         <p class="text-[10px] text-primary-content/80 leading-normal">
-          WhatsApp terhubung dan siap melayani tiket pelanggan.
+          WhatsApp connected and ready to process customer inquiries.
         </p>
       </div>
     </div>
@@ -236,7 +236,7 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
       <button
         @click="$emit('toggle')"
         class="btn btn-ghost btn-xs btn-circle text-base-content/40 hover:text-base-content hover:bg-base-200"
-        title="Perluas sidebar"
+        title="Expand sidebar"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m9 18 6-6-6-6" />

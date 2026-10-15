@@ -17,6 +17,7 @@ File ini berisi pola dan konvensi frontend Jarvis. Seluruh UI adalah **satu apli
 | Role | `admin`. Pengecekan di frontend hanya untuk tampilan, izin sebenarnya dicek backend. |
 | Base URL | Satu variabel: `VITE_BASEURL`. Tidak ada rahasia lain di variabel `VITE_*`. |
 | Tailwind | Tailwind v4: tanpa `tailwind.config.js`, semua konfigurasi di `app.css` |
+| Bahasa / Language | **Full English (`en-US`)**. Seluruh UI, label tombol, teks modal, placeholder, tooltip, empty state, notifikasi toast, badge, dan pesan konfirmasi dialog wajib konsisten menggunakan Bahasa Inggris. Tidak diperkenankan bercampur dengan Bahasa Indonesia. |
 
 ### Menu Back Office
 

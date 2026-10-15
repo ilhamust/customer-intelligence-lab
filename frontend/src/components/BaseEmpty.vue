@@ -2,7 +2,7 @@
 defineProps({
   title: {
     type: String,
-    default: 'Tidak ada data',
+    default: 'No data found',
   },
   description: {
     type: String,

@@ -29,7 +29,7 @@ const fetchDevices = async () => {
   try {
     await p$device.a$fetchList()
   } catch (e) {
-    notify.error(e?.message ?? e ?? 'Gagal memuat daftar perangkat')
+    notify.error(e?.message ?? e ?? 'Failed to load devices')
   }
 }
 
@@ -41,23 +41,23 @@ const handleSearch = (e) => {
 const handleReconnect = async (device) => {
   try {
     await p$device.a$reconnect(device.device_id)
-    notify.success(`Perangkat ${device.name || device.device_id} sedang disambungkan ulang`)
+    notify.success(`Reconnecting device ${device.name || device.device_id}`)
   } catch (e) {
-    notify.error(e?.message ?? e ?? 'Gagal menyambungkan ulang perangkat')
+    notify.error(e?.message ?? e ?? 'Failed to reconnect device')
   }
 }
 
 const handleLogout = async (device) => {
   try {
     await p$device.a$logout(device.device_id)
-    notify.success(`Sesi WhatsApp ${device.name || device.device_id} berhasil di-logout`)
+    notify.success(`WhatsApp session for ${device.name || device.device_id} logged out successfully`)
   } catch (e) {
-    notify.error(e?.message ?? e ?? 'Gagal logout perangkat')
+    notify.error(e?.message ?? e ?? 'Failed to log out device')
   }
 }
 
 const handleWebhook = (device) => {
-  notify.info(`Webhook aktif untuk slot: ${device.device_id}`)
+  notify.info(`Webhook active for slot: ${device.device_id}`)
 }
 
 const confirmDelete = (device) => {
@@ -70,11 +70,11 @@ const executeDelete = async () => {
   deleteLoading.value = true
   try {
     await p$device.a$delete(deviceToDelete.value.device_id)
-    notify.success(`Perangkat ${deviceToDelete.value.name || deviceToDelete.value.device_id} berhasil dihapus`)
+    notify.success(`Device ${deviceToDelete.value.name || deviceToDelete.value.device_id} successfully deleted`)
     showDeleteDialog.value = false
     deviceToDelete.value = null
   } catch (e) {
-    notify.error(e?.message ?? e ?? 'Gagal menghapus perangkat')
+    notify.error(e?.message ?? e ?? 'Failed to delete device')
   } finally {
     deleteLoading.value = false
   }
@@ -113,7 +113,7 @@ const handleOpenCode = (device) => {
             :value="searchInput"
             @input="handleSearch"
             type="text"
-            placeholder="Cari device..."
+            placeholder="Search devices..."
             class="input input-sm w-full bg-base-200 border-0 rounded-full pl-9 pr-3 text-xs text-base-content placeholder:text-base-content/40 focus:ring-1 focus:ring-base-content/20 focus:outline-none"
           />
           <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -128,7 +128,7 @@ const handleOpenCode = (device) => {
           @click="fetchDevices"
           :disabled="p$device.g$loading"
           class="btn btn-sm btn-ghost btn-circle text-base-content/60 hover:text-base-content"
-          title="Segarkan daftar"
+          title="Refresh list"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" :class="{ 'animate-spin': p$device.g$loading }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -155,14 +155,14 @@ const handleOpenCode = (device) => {
     <main class="flex-1">
       <!-- State 1: Loading -->
       <div v-if="p$device.g$loading && p$device.g$devices.length === 0" class="bg-base-100 rounded-2xl border border-base-300 p-12 shadow-xs flex items-center justify-center">
-        <BaseLoading text="Memuat daftar perangkat WhatsApp..." />
+        <BaseLoading text="Loading WhatsApp devices..." />
       </div>
 
       <!-- State 2: Empty -->
       <div v-else-if="p$device.g$filteredDevices.length === 0" class="bg-base-100 rounded-2xl border border-base-300 p-12 shadow-xs">
         <BaseEmpty
-          :title="searchInput ? 'Perangkat tidak ditemukan' : 'No devices found'"
-          :description="searchInput ? 'Tidak ada perangkat WhatsApp yang sesuai dengan kata kunci pencarian.' : 'Belum ada akun WhatsApp yang terhubung ke server gateway ini.'"
+          :title="searchInput ? 'No devices found' : 'No devices found'"
+          :description="searchInput ? 'No WhatsApp devices match your search query.' : 'No WhatsApp accounts have been connected to this gateway yet.'"
         >
           <template #icon>
             <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -181,7 +181,7 @@ const handleOpenCode = (device) => {
               Add device
             </BaseButton>
             <BaseButton v-else variant="outline" size="sm" @click="handleSearch({ target: { value: '' } })">
-              Reset Pencarian
+              Reset Search
             </BaseButton>
           </template>
         </BaseEmpty>
@@ -267,7 +267,7 @@ const handleOpenCode = (device) => {
                 tabindex="0"
                 type="button"
                 class="btn btn-ghost btn-sm btn-circle text-base-content/60 hover:text-base-content"
-                title="Aksi perangkat"
+                title="Device actions"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="12" cy="12" r="1" />
@@ -360,10 +360,10 @@ const handleOpenCode = (device) => {
     <BaseDialog
       :open="showDeleteDialog"
       variant="error"
-      title="Hapus Perangkat WhatsApp"
-      :message="`Apakah Anda yakin ingin menghapus slot perangkat '${deviceToDelete?.name || deviceToDelete?.device_id}'? Tindakan ini akan menghapus sesi WhatsApp dari server.`"
-      confirm-text="Hapus Perangkat"
-      cancel-text="Batal"
+      title="Delete WhatsApp Device"
+      :message="`Are you sure you want to delete '${deviceToDelete?.name || deviceToDelete?.device_id}'? This action will remove the WhatsApp session from the gateway server.`"
+      confirm-text="Delete Device"
+      cancel-text="Cancel"
       :loading="deleteLoading"
       @confirm="executeDelete"
       @cancel="showDeleteDialog = false"

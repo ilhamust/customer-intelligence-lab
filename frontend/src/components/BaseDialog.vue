@@ -6,7 +6,7 @@ defineProps({
   },
   title: {
     type: String,
-    default: 'Konfirmasi Tindakan',
+    default: 'Confirm Action',
   },
   message: {
     type: String,
@@ -14,11 +14,11 @@ defineProps({
   },
   confirmText: {
     type: String,
-    default: 'Ya, Lanjutkan',
+    default: 'Confirm',
   },
   cancelText: {
     type: String,
-    default: 'Batal',
+    default: 'Cancel',
   },
   variant: {
     type: String,

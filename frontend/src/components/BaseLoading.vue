@@ -7,7 +7,7 @@ defineProps({
   },
   text: {
     type: String,
-    default: 'Memuat...',
+    default: 'Loading...',
   },
   size: {
     type: String,

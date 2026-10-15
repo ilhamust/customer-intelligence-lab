@@ -39,7 +39,7 @@ const checkConnectionStatus = async () => {
 
     if (isConnected) {
       cleanupTimers()
-      notify.success(`Perangkat ${props.device.name || props.device.device_id} berhasil terhubung!`)
+      notify.success(`Device ${props.device.name || props.device.device_id} successfully connected!`)
       await p$device.a$fetchList()
       p$device.a$select(props.device.device_id)
       emit('close')
@@ -72,7 +72,7 @@ const fetchQr = async () => {
     // Poll status every 2 seconds
     pollTimer = setInterval(checkConnectionStatus, 2000)
   } catch (e) {
-    notify.error(e?.message ?? e ?? 'Gagal mengambil QR Code')
+    notify.error(e?.message ?? e ?? 'Failed to retrieve QR Code')
   } finally {
     loading.value = false
   }
@@ -108,7 +108,7 @@ onBeforeUnmount(() => {
           <div class="text-left space-y-1">
             <h3 class="font-bold text-base text-base-content tracking-tight">Login with QR Code</h3>
             <p class="text-xs text-base-content/60">
-              Pindai QR code ini melalui menu <strong>Perangkat Tertaut</strong> di WhatsApp ponsel Anda.
+              Scan this QR code from the <strong>Linked Devices</strong> menu on your WhatsApp phone.
             </p>
           </div>
 
@@ -116,6 +116,7 @@ onBeforeUnmount(() => {
             type="button"
             @click="$emit('close')"
             class="btn btn-ghost btn-sm btn-circle text-base-content/50 hover:text-base-content shrink-0"
+            title="Close"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 6 6 18" />
@@ -127,7 +128,7 @@ onBeforeUnmount(() => {
         <!-- QR Display Container -->
         <div class="py-2">
           <div v-if="loading" class="h-64 flex items-center justify-center">
-            <BaseLoading text="Menyiapkan QR Code dari gateway..." />
+            <BaseLoading text="Preparing QR Code from gateway..." />
           </div>
 
           <div v-else-if="qrImage" class="space-y-3">
@@ -141,30 +142,30 @@ onBeforeUnmount(() => {
                 pill
                 size="sm"
               >
-                Kedaluwarsa dalam {{ countdown }}s
+                Expires in {{ countdown }}s
               </BaseBadge>
 
               <button
                 type="button"
                 @click="fetchQr"
                 class="btn btn-ghost btn-xs rounded-lg text-primary hover:bg-base-200"
-                title="Muat ulang QR"
+                title="Reload QR Code"
               >
-                Segarkan
+                Refresh
               </button>
             </div>
           </div>
 
           <div v-else class="h-64 flex flex-col items-center justify-center space-y-3">
-            <p class="text-xs text-base-content/60">Tidak dapat memuat QR Code.</p>
-            <BaseButton variant="outline" size="sm" @click="fetchQr">Coba Lagi</BaseButton>
+            <p class="text-xs text-base-content/60">Unable to load QR Code.</p>
+            <BaseButton variant="outline" size="sm" @click="fetchQr">Try Again</BaseButton>
           </div>
         </div>
 
         <!-- Footer -->
         <div class="pt-2 border-t border-base-300">
           <BaseButton variant="outline" size="sm" block @click="$emit('close')">
-            Tutup
+            Close
           </BaseButton>
         </div>
       </div>

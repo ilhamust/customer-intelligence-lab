@@ -20,6 +20,7 @@ File ini adalah **referensi gaya dan pola** untuk backend Jarvis. Kode contoh di
 | Status validasi gagal (FormRequest) | **400** lewat `ValidationErrorResource` |
 | Status pelanggaran aturan bisnis | **422** lewat `UnprocessableEntityException` (contoh: saldo poin kurang, redeem ditolak) |
 | Primary key | ULID (`HasUlids`) |
+| Bahasa / Language | **Full English (`en-US`)**. Seluruh pesan response API, exception messages, validation messages, log messages, dan docstrings wajib konsisten menggunakan Bahasa Inggris. Tidak diperkenankan bercampur dengan Bahasa Indonesia. |
 | Dokumentasi API | Opsional (Scribe), bukan prioritas |
 
 ---

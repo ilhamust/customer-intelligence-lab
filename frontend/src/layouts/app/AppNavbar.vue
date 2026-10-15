@@ -34,7 +34,7 @@ onMounted(() => {
         </svg>
         <input
           type="text"
-          placeholder="Cari data, tiket, atau pelanggan..."
+          placeholder="Search data, tickets, or customers..."
           class="input input-sm w-full bg-base-200 border-0 rounded-full pl-10 pr-4 text-xs text-base-content placeholder:text-base-content/40 focus:outline-none focus:ring-1 focus:ring-primary focus:bg-base-100 transition-all"
         />
       </div>
@@ -46,7 +46,7 @@ onMounted(() => {
       <button
         @click="toggleTheme"
         class="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-base-content hover:bg-base-200"
-        :title="currentTheme === 'light' ? 'Beralih ke Mode Gelap' : 'Beralih ke Mode Terang'"
+        :title="currentTheme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'"
       >
         <!-- Sun icon -->
         <svg v-if="currentTheme === 'dark'" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -65,7 +65,7 @@ onMounted(() => {
       <!-- Notification Bell -->
       <button
         class="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-base-content hover:bg-base-200 relative"
-        title="Notifikasi"
+        title="Notifications"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />

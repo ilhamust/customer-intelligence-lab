@@ -36,7 +36,7 @@ const checkConnectionStatus = async () => {
 
     if (isConnected) {
       cleanupPoll()
-      notify.success(`Perangkat ${props.device.name || props.device.device_id} berhasil terhubung!`)
+      notify.success(`Device ${props.device.name || props.device.device_id} successfully connected!`)
       await p$device.a$fetchList()
       p$device.a$select(props.device.device_id)
       emit('close')
@@ -60,7 +60,7 @@ watch(
 const handleGetCode = async () => {
   const cleanPhone = phone.value.replace(/\D/g, '')
   if (!cleanPhone || cleanPhone.length < 8) {
-    notify.error('Nomor telepon WhatsApp tidak valid')
+    notify.error('Invalid WhatsApp phone number')
     return
   }
 
@@ -70,12 +70,12 @@ const handleGetCode = async () => {
   try {
     const res = await p$device.a$getLoginCode(props.device.device_id, cleanPhone)
     pairCode.value = res?.pair_code || ''
-    notify.success('Kode pairing berhasil dibuat!')
+    notify.success('Pairing code generated successfully!')
 
     // Poll status every 2.5 seconds
     pollTimer = setInterval(checkConnectionStatus, 2500)
   } catch (e) {
-    notify.error(e?.message ?? e ?? 'Gagal mendapatkan kode pairing')
+    notify.error(e?.message ?? e ?? 'Failed to generate pairing code')
   } finally {
     loading.value = false
   }
@@ -108,7 +108,7 @@ onBeforeUnmount(() => {
           <div class="space-y-1">
             <h3 class="font-bold text-base text-base-content tracking-tight">Login with Code</h3>
             <p class="text-xs text-base-content/60">
-              Tautkan WhatsApp menggunakan 8-digit kode pairing tanpa memindai QR code.
+              Link WhatsApp using an 8-digit pairing code without scanning a QR code.
             </p>
           </div>
 
@@ -116,6 +116,7 @@ onBeforeUnmount(() => {
             type="button"
             @click="$emit('close')"
             class="btn btn-ghost btn-sm btn-circle text-base-content/50 hover:text-base-content shrink-0"
+            title="Close"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 6 6 18" />
@@ -128,8 +129,8 @@ onBeforeUnmount(() => {
         <div v-if="!pairCode" class="space-y-4">
           <BaseInput
             v-model="phone"
-            label="Nomor WhatsApp Ponsel"
-            placeholder="Contoh: 6281234567890"
+            label="WhatsApp Phone Number"
+            placeholder="e.g. 6281234567890"
             :disabled="loading"
           />
 
@@ -140,21 +141,21 @@ onBeforeUnmount(() => {
             :loading="loading"
             @click="handleGetCode"
           >
-            Dapatkan Kode Pairing
+            Get Pairing Code
           </BaseButton>
         </div>
 
         <!-- Step 2: Show 8-Digit Pairing Code -->
         <div v-else class="space-y-4 text-center">
           <div class="p-5 bg-base-200 rounded-2xl border border-base-300 shadow-inner">
-            <p class="text-[11px] font-bold text-base-content/60 uppercase tracking-wider mb-2">Kode Pairing Anda</p>
+            <p class="text-[11px] font-bold text-base-content/60 uppercase tracking-wider mb-2">Your Pairing Code</p>
             <div class="font-mono font-black text-2xl tracking-widest text-primary select-all">
               {{ formatPairCode(pairCode) }}
             </div>
           </div>
 
           <p class="text-xs text-base-content/70 leading-relaxed">
-            Buka notifikasi WhatsApp di ponsel Anda, lalu masukkan 8 karakter kode di atas untuk menyelesaikan penautan.
+            Open the WhatsApp notification on your phone, then enter the 8 characters above to complete pairing.
           </p>
 
           <BaseButton
@@ -163,7 +164,7 @@ onBeforeUnmount(() => {
             block
             @click="$emit('close')"
           >
-            Selesai
+            Done
           </BaseButton>
         </div>
       </div>

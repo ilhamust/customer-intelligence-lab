@@ -38,7 +38,7 @@ watch(
 
 const handleSubmit = async () => {
   if (!form.value.name.trim()) {
-    notify.error('Nama perangkat wajib diisi')
+    notify.error('Device name is required')
     return
   }
 
@@ -49,11 +49,11 @@ const handleSubmit = async () => {
       name: form.value.name.trim(),
     }
     await p$device.a$register(payload)
-    notify.success(`Perangkat '${payload.name}' berhasil ditambahkan!`)
+    notify.success(`Device '${payload.name}' successfully added!`)
     emit('created')
     emit('close')
   } catch (e) {
-    notify.error(e?.message ?? e ?? 'Gagal menambahkan perangkat')
+    notify.error(e?.message ?? e ?? 'Failed to add device')
   } finally {
     loading.value = false
   }
@@ -81,7 +81,7 @@ const handleSubmit = async () => {
             type="button"
             @click="$emit('close')"
             class="btn btn-ghost btn-sm btn-circle text-base-content/50 hover:text-base-content shrink-0"
-            title="Tutup dialog"
+            title="Close dialog"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M18 6 6 18" />
