@@ -1,19 +1,36 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import { useConversationStore } from '@/stores/app/conversation.store'
 import { getInitials, formatRelativeTime, formatTime, formatPhone } from '@/utils/helper'
 import { notify } from '@/plugins'
 
 const p$conv = useConversationStore()
 const replyInput = ref('')
+const messageContainer = ref(null)
+const sending = ref(false)
+
+const scrollToBottom = async () => {
+  await nextTick()
+  if (messageContainer.value) {
+    messageContainer.value.scrollTop = messageContainer.value.scrollHeight
+  }
+}
 
 onMounted(async () => {
   try {
     await p$conv.a$fetchList()
+    scrollToBottom()
   } catch (e) {
     notify.error(e?.message ?? e ?? 'Failed to load conversations')
   }
 })
+
+watch(
+  () => p$conv.g$activeConversation?.messages?.length,
+  () => {
+    scrollToBottom()
+  }
+)
 
 const handleSearch = (e) => {
   p$conv.a$search(e.target.value)
@@ -23,22 +40,37 @@ const handleTabChange = (status) => {
   p$conv.a$filterByStatus(status)
 }
 
-const handleSelect = (id) => {
-  p$conv.a$select(id)
+const handleSelect = async (id) => {
+  try {
+    await p$conv.a$select(id)
+    scrollToBottom()
+  } catch (e) {
+    notify.error(e?.message ?? e ?? 'Failed to select conversation')
+  }
 }
 
-const handleSend = () => {
-  if (!replyInput.value.trim() || !p$conv.g$activeConversation) return
-  p$conv.g$activeConversation.messages.push({
-    id: Date.now(),
-    sender: 'ai',
-    text: replyInput.value.trim(),
-    time: new Date().toISOString(),
-    status: 'delivered',
-  })
-  p$conv.g$activeConversation.lastMessage = replyInput.value.trim()
-  p$conv.g$activeConversation.lastMessageTime = new Date().toISOString()
+const handleSend = async () => {
+  if (!replyInput.value.trim() || !p$conv.g$activeConversation || sending.value) return
+  const text = replyInput.value.trim()
   replyInput.value = ''
+  sending.value = true
+  try {
+    await p$conv.a$sendMessage(text)
+    scrollToBottom()
+  } catch (e) {
+    notify.error(e?.message ?? e ?? 'Failed to send message')
+  } finally {
+    sending.value = false
+  }
+}
+
+const handleSync = async () => {
+  try {
+    const res = await p$conv.a$sync()
+    notify.success(res?.message ?? 'Conversations synchronized successfully')
+  } catch (e) {
+    notify.error(e?.message ?? e ?? 'Failed to synchronize with WhatsApp')
+  }
 }
 </script>
 
@@ -52,6 +84,32 @@ const handleSend = () => {
           <div class="flex items-center gap-2">
             <h2 class="font-bold text-sm text-base-content tracking-tight">WhatsApp Inbox</h2>
           </div>
+          <!-- Sync Button -->
+          <button
+            type="button"
+            @click="handleSync"
+            :disabled="p$conv.g$syncing"
+            class="btn btn-ghost btn-xs rounded-lg gap-1 text-[11px] text-base-content/60 hover:text-base-content hover:bg-base-200 transition-colors"
+            title="Sync conversations from WhatsApp Gateway"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-3.5 h-3.5"
+              :class="{ 'animate-spin': p$conv.g$syncing }"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M16 21h5v-5" />
+            </svg>
+            <span>{{ p$conv.g$syncing ? 'Syncing...' : 'Sync' }}</span>
+          </button>
         </div>
 
         <!-- Search Bar ala Gambar 2 -->
@@ -87,10 +145,10 @@ const handleSend = () => {
           >
             <span>Unread</span>
             <span
-              v-if="p$conv.g$conversations.filter(c => c.unreadCount > 0).length"
+              v-if="p$conv.g$conversations.filter(c => (c.unreadCount ?? c.unread_count ?? 0) > 0).length"
               class="min-w-4.5 h-4.5 px-1 rounded-full bg-primary text-primary-content font-bold text-[10px] flex items-center justify-center shadow-xs"
             >
-              {{ p$conv.g$conversations.filter(c => c.unreadCount > 0).length }}
+              {{ p$conv.g$conversations.filter(c => (c.unreadCount ?? c.unread_count ?? 0) > 0).length }}
             </span>
           </button>
         </div>
@@ -99,7 +157,7 @@ const handleSend = () => {
       <!-- Contact List Body -->
       <div class="flex-1 overflow-y-auto px-2 space-y-1">
         <!-- Loading State -->
-        <div v-if="p$conv.g$loading" class="p-8">
+        <div v-if="p$conv.g$loading && p$conv.g$conversations.length === 0" class="p-8">
           <BaseLoading text="Loading conversations..." />
         </div>
 
@@ -126,29 +184,29 @@ const handleSend = () => {
         >
           <!-- Clean Avatar Initial -->
           <div class="w-10 h-10 rounded-full bg-base-200 text-base-content/80 font-bold text-xs flex items-center justify-center shrink-0">
-            {{ getInitials(chat.customer.name) }}
+            {{ getInitials(chat.customer?.name ?? chat.name) }}
           </div>
 
           <!-- Middle: Name & Clean Last Message -->
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between mb-1">
               <h3 class="font-semibold text-xs text-base-content truncate">
-                {{ chat.customer.name }}
+                {{ chat.customer?.name ?? chat.name }}
               </h3>
               <span class="text-[10px] text-base-content/40 font-medium tabular-nums shrink-0 ml-2">
-                {{ formatRelativeTime(chat.lastMessageTime) }}
+                {{ formatRelativeTime(chat.lastMessageTime ?? chat.last_message_time) }}
               </span>
             </div>
 
             <p class="text-[11px] text-base-content/50 truncate leading-tight">
-              {{ chat.lastMessage }}
+              {{ chat.lastMessage ?? chat.last_message }}
             </p>
           </div>
 
           <!-- Unread Counter Pill ( Primary Token) -->
-          <div v-if="chat.unreadCount > 0" class="shrink-0 pl-1">
+          <div v-if="(chat.unreadCount ?? chat.unread_count ?? 0) > 0" class="shrink-0 pl-1">
             <span class="w-4.5 h-4.5 rounded-full bg-primary text-primary-content font-bold text-[10px] flex items-center justify-center shadow-xs">
-              {{ chat.unreadCount }}
+              {{ chat.unreadCount ?? chat.unread_count }}
             </span>
           </div>
         </div>
@@ -188,16 +246,16 @@ const handleSend = () => {
           <div class="flex items-center gap-3 min-w-0">
             <!-- Avatar Inisial -->
             <div class="w-9 h-9 rounded-full bg-base-200 text-base-content/80 font-bold text-xs flex items-center justify-center shrink-0">
-              {{ getInitials(p$conv.g$activeConversation.customer.name) }}
+              {{ getInitials(p$conv.g$activeConversation.customer?.name ?? p$conv.g$activeConversation.name) }}
             </div>
 
             <!-- Details Kontak -->
             <div class="min-w-0">
               <h2 class="font-semibold text-xs text-base-content truncate leading-tight">
-                {{ p$conv.g$activeConversation.customer.name }}
+                {{ p$conv.g$activeConversation.customer?.name ?? p$conv.g$activeConversation.name }}
               </h2>
               <p class="text-[11px] text-base-content/45 font-medium tabular-nums leading-tight mt-0.5">
-                {{ formatPhone(p$conv.g$activeConversation.customer.phone) }}
+                {{ formatPhone(p$conv.g$activeConversation.customer?.phone ?? p$conv.g$activeConversation.phone) }}
               </p>
             </div>
           </div>
@@ -212,31 +270,31 @@ const handleSend = () => {
         </header>
 
         <!-- Scrollable Message Body (Lapang & Tenang) -->
-        <div class="flex-1 overflow-y-auto p-6 space-y-3.5 bg-base-200/40 dark:bg-base-200">
+        <div ref="messageContainer" class="flex-1 overflow-y-auto p-6 space-y-3.5 bg-base-200/40 dark:bg-base-200">
           <!-- Date Separator -->
           <div class="flex justify-center my-2">
             <span class="px-3 py-1 rounded-full text-[10px] font-medium bg-base-100 dark:bg-base-300 border border-base-300 text-base-content/50 shadow-2xs">
-              Today
+              Chat History
             </span>
           </div>
 
           <!-- Message Bubbles (Tanpa Header Internal Berjejal) -->
           <div
-            v-for="msg in p$conv.g$activeConversation.messages"
+            v-for="msg in (p$conv.g$activeConversation.messages || [])"
             :key="msg.id"
             class="flex"
-            :class="[msg.sender === 'customer' ? 'justify-start' : 'justify-end']"
+            :class="[(msg.sender === 'customer' || msg.sender_type === 'customer') ? 'justify-start' : 'justify-end']"
           >
             <!-- Inbound (Customer Bubble - Warna Pekat Solid, Berkontras Tinggi di Dark Mode) -->
             <div
-              v-if="msg.sender === 'customer'"
+              v-if="(msg.sender === 'customer' || msg.sender_type === 'customer')"
               class="max-w-md bg-base-100 dark:bg-base-300 text-base-content rounded-2xl rounded-tl-xs p-3 px-3.5 shadow-sm space-y-1"
             >
               <p class="text-xs leading-relaxed text-base-content select-text whitespace-pre-wrap">
                 {{ msg.text }}
               </p>
               <div class="flex items-center justify-end text-[10px] text-base-content/50 font-medium tabular-nums pt-0.5">
-                <span>{{ formatTime(msg.time) }}</span>
+                <span>{{ formatTime(msg.time ?? msg.sent_at) }}</span>
               </div>
             </div>
 
@@ -250,7 +308,7 @@ const handleSend = () => {
               </p>
 
               <div class="flex items-center justify-end gap-1.5 text-[10px] text-primary-content/80 font-medium tabular-nums pt-0.5">
-                <span>{{ formatTime(msg.time) }}</span>
+                <span>{{ formatTime(msg.time ?? msg.sent_at) }}</span>
                 <!-- Double Checkmark Icon -->
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-primary-content" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="m3 12 5 5L20 5" />
@@ -284,15 +342,15 @@ const handleSend = () => {
             <button
               type="button"
               @click="handleSend"
-              :disabled="!replyInput.trim()"
+              :disabled="!replyInput.trim() || sending"
               class="btn btn-sm px-4 rounded-xl flex items-center gap-1.5 text-xs font-semibold transition-all duration-150 disabled:!opacity-90 disabled:!bg-base-300 disabled:!text-base-content/60 disabled:!border-base-300/80 disabled:cursor-not-allowed"
               :class="[
-                replyInput.trim()
+                replyInput.trim() && !sending
                   ? 'btn-accent text-accent-content font-bold shadow-sm hover:brightness-105 active:scale-95 cursor-pointer'
                   : 'bg-base-300 text-base-content/60 border border-base-300/80'
               ]"
             >
-              <span>Send</span>
+              <span>{{ sending ? 'Sending...' : 'Send' }}</span>
               <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="m22 2-7 20-4-9-9-4Z" />
                 <path d="M22 2 11 13" />
