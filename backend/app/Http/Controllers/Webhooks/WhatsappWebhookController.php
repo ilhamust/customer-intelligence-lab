@@ -3,12 +3,18 @@
 namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
+use App\Service\Bot\Contracts\ConversationService;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class WhatsappWebhookController extends Controller
 {
+    public function __construct(
+        protected ConversationService $conversationService
+    ) {}
+
     /**
      * Handle incoming webhook notifications from GOWA service.
      */
@@ -26,14 +32,19 @@ class WhatsappWebhookController extends Controller
 
         // Jika event adalah pesan WhatsApp masuk
         if ($event === 'message') {
-            $messageData = $request->input('payload', []);
-            Log::info('[GOWA Incoming Message]', [
-                'from' => $messageData['from'] ?? null,
-                'body' => $messageData['body'] ?? null,
-                'is_from_me' => $messageData['is_from_me'] ?? false,
-            ]);
+            try {
+                $savedMessage = $this->conversationService->handleIncomingMessageWebhook($payload, $deviceId);
 
-            // TODO: ProcessIncomingWhatsappMessage::dispatch($payload);
+                Log::info('[GOWA Message Saved]', [
+                    'device_id' => $deviceId,
+                    'message_id' => $savedMessage?->id,
+                ]);
+            } catch (Exception $e) {
+                Log::error('[GOWA Message Webhook Error]', [
+                    'device_id' => $deviceId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return response()->json([

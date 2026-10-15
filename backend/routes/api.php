@@ -20,4 +20,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/logout', [\App\Http\Controllers\Whatsapp\WhatsappDeviceController::class, 'logout'])->name('whatsapp.logout');
         Route::post('/reconnect', [\App\Http\Controllers\Whatsapp\WhatsappDeviceController::class, 'reconnect'])->name('whatsapp.reconnect');
     });
+
+    // Conversations & Chat Management
+    Route::prefix('conversations')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Bot\ConversationController::class, 'index'])->name('conversations.index');
+        Route::post('/sync', [\App\Http\Controllers\Bot\ConversationController::class, 'sync'])->name('conversations.sync');
+        Route::get('/{id}', [\App\Http\Controllers\Bot\ConversationController::class, 'show'])->name('conversations.show');
+        Route::get('/{id}/messages', [\App\Http\Controllers\Bot\ConversationController::class, 'messages'])->name('conversations.messages');
+        Route::post('/{id}/messages', [\App\Http\Controllers\Bot\ConversationController::class, 'send'])->name('conversations.messages.send');
+    });
 });
