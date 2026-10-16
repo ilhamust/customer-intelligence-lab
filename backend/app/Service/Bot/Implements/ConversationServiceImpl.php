@@ -5,6 +5,7 @@ namespace App\Service\Bot\Implements;
 use App\Events\Bot\MessageReceived;
 use App\Exceptions\BadRequestException;
 use App\Exceptions\NotFoundException;
+use App\Jobs\Bot\GenerateAiReplyJob;
 use App\Models\Bot\Conversation;
 use App\Models\Bot\Message;
 use App\Models\Bot\WhatsappChannel;
@@ -61,7 +62,7 @@ class ConversationServiceImpl implements ConversationService
             $q->orderBy('sent_at', 'asc');
         }]);
 
-        if (!empty($filters['device_id'])) {
+        if (! empty($filters['device_id'])) {
             $query->where('device_id', $filters['device_id']);
         }
 
@@ -71,17 +72,17 @@ class ConversationServiceImpl implements ConversationService
         } elseif ($status === 'escalated') {
             $query->where(function ($q) {
                 $q->where('status', 'escalated')
-                  ->orWhere('handler', 'human');
+                    ->orWhere('handler', 'human');
             });
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = trim($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ilike', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%")
-                  ->orWhere('chat_jid', 'like', "%{$search}%")
-                  ->orWhere('last_message', 'ilike', "%{$search}%");
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('chat_jid', 'like', "%{$search}%")
+                    ->orWhere('last_message', 'ilike', "%{$search}%");
             });
         }
 
@@ -89,7 +90,7 @@ class ConversationServiceImpl implements ConversationService
             ->orderBy('updated_at', 'desc')
             ->get();
 
-        $data = $conversations->map(fn(Conversation $c) => $this->formatConversation($c))->all();
+        $data = $conversations->map(fn (Conversation $c) => $this->formatConversation($c))->all();
 
         return [
             'data' => $data,
@@ -110,7 +111,7 @@ class ConversationServiceImpl implements ConversationService
             $q->orderBy('sent_at', 'asc');
         }])->find($conversationId);
 
-        if (!$conversation) {
+        if (! $conversation) {
             throw new NotFoundException("Conversation [{$conversationId}] not found.");
         }
 
@@ -134,7 +135,7 @@ class ConversationServiceImpl implements ConversationService
             ->limit($limit)
             ->get();
 
-        return $messages->map(fn(Message $m) => $this->formatMessage($m))->all();
+        return $messages->map(fn (Message $m) => $this->formatMessage($m))->all();
     }
 
     /**
@@ -145,7 +146,7 @@ class ConversationServiceImpl implements ConversationService
         $m = __METHOD__;
         $conversation = Conversation::find($conversationId);
 
-        if (!$conversation) {
+        if (! $conversation) {
             throw new NotFoundException("Conversation [{$conversationId}] not found.");
         }
 
@@ -161,7 +162,7 @@ class ConversationServiceImpl implements ConversationService
             $conversation->device_id
         );
 
-        if (!$sent) {
+        if (! $sent) {
             $this->logWarning($m, 'Failed sending WhatsApp message via gateway, saving with failed status', [
                 'conversation_id' => $conversationId,
                 'phone' => $conversation->phone,
@@ -206,8 +207,9 @@ class ConversationServiceImpl implements ConversationService
         $m = __METHOD__;
         $id = $this->resolveDeviceId($deviceId);
 
-        if (!$id) {
+        if (! $id) {
             $this->logWarning($m, 'No WhatsApp device configured or connected for sync');
+
             return [
                 'synced_conversations' => 0,
                 'synced_messages' => 0,
@@ -223,15 +225,15 @@ class ConversationServiceImpl implements ConversationService
 
         foreach ($chats as $chat) {
             $chatJid = $chat['jid'] ?? null;
-            if (!$chatJid || str_contains($chatJid, 'broadcast') || $chatJid === '0@s.whatsapp.net') {
+            if (! $chatJid || str_contains($chatJid, 'broadcast') || $chatJid === '0@s.whatsapp.net') {
                 continue;
             }
 
             $phone = preg_replace('/[^0-9]/', '', explode('@', $chatJid)[0]);
-            $name = !empty($chat['name']) ? $chat['name'] : $phone;
+            $name = ! empty($chat['name']) ? $chat['name'] : $phone;
 
             $lastTime = null;
-            if (!empty($chat['last_message_time']) && !str_starts_with($chat['last_message_time'], '0001')) {
+            if (! empty($chat['last_message_time']) && ! str_starts_with($chat['last_message_time'], '0001')) {
                 try {
                     $lastTime = Carbon::parse($chat['last_message_time']);
                 } catch (Exception) {
@@ -257,7 +259,7 @@ class ConversationServiceImpl implements ConversationService
 
             // Fetch recent messages for this chat
             $gowaMessages = $this->whatsappGateway->getChatMessages($chatJid, $id, 30);
-            if (!empty($gowaMessages) && is_array($gowaMessages)) {
+            if (! empty($gowaMessages) && is_array($gowaMessages)) {
                 $latestMessageText = null;
                 $latestMessageTime = null;
 
@@ -267,7 +269,7 @@ class ConversationServiceImpl implements ConversationService
                     $isFromMe = (bool) ($gMsg['is_from_me'] ?? false);
 
                     $sentAt = now();
-                    if (!empty($gMsg['timestamp'])) {
+                    if (! empty($gMsg['timestamp'])) {
                         try {
                             $sentAt = Carbon::parse($gMsg['timestamp']);
                         } catch (Exception) {
@@ -285,7 +287,7 @@ class ConversationServiceImpl implements ConversationService
 
                     // If this is an outbound message and not found by WhatsApp ID,
                     // match against local messages that were sent with whatsapp_message_id = null
-                    if (!$existingMsg && $isFromMe) {
+                    if (! $existingMsg && $isFromMe) {
                         $pendingOutbound = Message::where('conversation_id', $conversation->id)
                             ->where('is_from_me', true)
                             ->whereNull('whatsapp_message_id')
@@ -308,7 +310,7 @@ class ConversationServiceImpl implements ConversationService
                         }
                     }
 
-                    if (!$existingMsg) {
+                    if (! $existingMsg) {
                         Message::create([
                             'conversation_id' => $conversation->id,
                             'whatsapp_message_id' => $msgId,
@@ -327,7 +329,7 @@ class ConversationServiceImpl implements ConversationService
                     }
 
                     // Track latest message
-                    if (!$latestMessageTime || $sentAt->greaterThan($latestMessageTime)) {
+                    if (! $latestMessageTime || $sentAt->greaterThan($latestMessageTime)) {
                         $latestMessageTime = $sentAt;
                         $latestMessageText = $content;
                     }
@@ -367,8 +369,9 @@ class ConversationServiceImpl implements ConversationService
         $data = $payload['payload'] ?? $payload;
         $chatJid = $data['from'] ?? $data['chat_jid'] ?? $data['sender'] ?? null;
 
-        if (!$chatJid || str_contains($chatJid, 'broadcast')) {
+        if (! $chatJid || str_contains($chatJid, 'broadcast')) {
             $this->logInfo($m, 'Ignoring incoming message webhook without valid chat JID', ['data' => $data]);
+
             return null;
         }
 
@@ -379,7 +382,7 @@ class ConversationServiceImpl implements ConversationService
         $messageId = $data['id'] ?? $data['whatsapp_message_id'] ?? null;
 
         $sentAt = now();
-        if (!empty($data['timestamp'])) {
+        if (! empty($data['timestamp'])) {
             try {
                 $sentAt = Carbon::parse($data['timestamp']);
             } catch (Exception) {
@@ -392,19 +395,19 @@ class ConversationServiceImpl implements ConversationService
             ->where(function ($q) use ($id) {
                 if ($id) {
                     $q->where('device_id', $id)
-                      ->orWhere('device_id', explode('@', $id)[0]);
+                        ->orWhere('device_id', explode('@', $id)[0]);
                 }
             })
             ->first();
 
-        if (!$conversation) {
+        if (! $conversation) {
             $conversation = Conversation::where('chat_jid', $chatJid)->first();
             if ($conversation && $id && $conversation->device_id !== $id) {
                 $conversation->update(['device_id' => $id]);
             }
         }
 
-        if (!$conversation) {
+        if (! $conversation) {
             $conversation = Conversation::create([
                 'device_id' => $id,
                 'chat_jid' => $chatJid,
@@ -450,6 +453,7 @@ class ConversationServiceImpl implements ConversationService
                         'sent_at' => $sentAt,
                     ]);
                 }
+
                 return $pendingMsg;
             }
         }
@@ -467,7 +471,7 @@ class ConversationServiceImpl implements ConversationService
 
         $conversation->last_message = $text;
         $conversation->last_message_time = $sentAt;
-        if (!$isFromMe) {
+        if (! $isFromMe) {
             $conversation->unread_count += 1;
         }
         $conversation->save();
@@ -479,6 +483,16 @@ class ConversationServiceImpl implements ConversationService
 
         // Broadcast incoming message to WebSocket clients
         broadcast(new MessageReceived($message, $conversation));
+
+        // Automatically trigger AI reply if conversation handler is 'ai' and message is from customer
+        if (! $isFromMe && $conversation->handler === 'ai') {
+            $this->logInfo($m, 'Dispatching GenerateAiReplyJob for incoming customer message', [
+                'conversation_id' => $conversation->id,
+                'message_id' => $message->id,
+            ]);
+
+            GenerateAiReplyJob::dispatch($conversation->id, $message->id);
+        }
 
         return $message;
     }
@@ -513,7 +527,7 @@ class ConversationServiceImpl implements ConversationService
             'last_message' => $c->last_message ?? '',
             'lastMessageTime' => $c->last_message_time?->toIso8601String(),
             'last_message_time' => $c->last_message_time?->toIso8601String(),
-            'messages' => $c->messages->map(fn(Message $m) => $this->formatMessage($m))->values()->all(),
+            'messages' => $c->messages->map(fn (Message $m) => $this->formatMessage($m))->values()->all(),
         ];
     }
 
