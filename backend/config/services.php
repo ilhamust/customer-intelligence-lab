@@ -40,6 +40,7 @@ return [
         'username' => env('GOWA_USERNAME', 'user1'),
         'password' => env('GOWA_PASSWORD', 'pass1'),
         'webhook_secret' => env('GOWA_WEBHOOK_SECRET'),
+        'target_webhook_url' => env('GOWA_TARGET_WEBHOOK_URL', 'http://laravel.test/api/v1/webhooks/whatsapp'),
         'default_device_id' => env('GOWA_DEFAULT_DEVICE_ID', 'default'),
     ],
 

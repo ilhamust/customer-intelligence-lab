@@ -53,6 +53,24 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
     }
 
     /**
+     * Resolve target webhook URL for GOWA callbacks.
+     */
+    protected function resolveWebhookUrl(): string
+    {
+        $url = $this->webhookUrl ?: config('services.gowa.target_webhook_url');
+
+        if (!empty($url)) {
+            // When running in Docker/Sail, replace localhost/127.0.0.1 with laravel.test
+            if (env('LARAVEL_SAIL') && (str_contains($url, 'localhost') || str_contains($url, '127.0.0.1'))) {
+                return 'http://laravel.test/api/v1/webhooks/whatsapp';
+            }
+            return $url;
+        }
+
+        return env('LARAVEL_SAIL') ? 'http://laravel.test/api/v1/webhooks/whatsapp' : url('/api/v1/webhooks/whatsapp');
+    }
+
+    /**
      * Get connection and login status of a device.
      */
     public function getStatus(?string $deviceId = null): array
@@ -127,7 +145,7 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
     {
         $m = __METHOD__;
 
-        $targetWebhook = $this->webhookUrl ?: url('/api/v1/webhooks/whatsapp');
+        $targetWebhook = $this->resolveWebhookUrl();
 
         $response = $this->client()->post('/devices', [
             'device_id' => $deviceId,
@@ -516,6 +534,47 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                 'error' => $e->getMessage(),
             ]);
             return [];
+        }
+    }
+
+    /**
+     * Update device webhook configuration in GOWA.
+     */
+    public function setDeviceWebhook(string $deviceId, ?string $webhookUrl = null): bool
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId);
+        $url = $webhookUrl ?: $this->resolveWebhookUrl();
+
+        try {
+            $response = $this->client()->patch("/devices/{$id}/webhook", [
+                'webhook_url' => $url,
+                'webhook_secret' => $this->webhookSecret,
+                'webhook_events' => 'message,message.ack',
+                'webhook_insecure_skip_verify' => false,
+            ]);
+
+            if (!$response->successful()) {
+                $this->logError($m, 'Failed to update device webhook in GOWA', [
+                    'device_id' => $id,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return false;
+            }
+
+            $this->logInfo($m, 'Device webhook updated successfully in GOWA', [
+                'device_id' => $id,
+                'webhook_url' => $url,
+            ]);
+
+            return true;
+        } catch (Exception $e) {
+            $this->logError($m, 'Error updating device webhook in GOWA', [
+                'device_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
         }
     }
 }

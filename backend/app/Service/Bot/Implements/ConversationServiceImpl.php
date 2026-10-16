@@ -267,6 +267,31 @@ class ConversationServiceImpl implements ConversationService
                             ->first();
                     }
 
+                    // If this is an outbound message and not found by WhatsApp ID,
+                    // match against local messages that were sent with whatsapp_message_id = null
+                    if (!$existingMsg && $isFromMe) {
+                        $pendingOutbound = Message::where('conversation_id', $conversation->id)
+                            ->where('is_from_me', true)
+                            ->whereNull('whatsapp_message_id')
+                            ->where('text', $content)
+                            ->whereBetween('sent_at', [
+                                $sentAt->copy()->subMinutes(5),
+                                $sentAt->copy()->addMinutes(5),
+                            ])
+                            ->orderBy('sent_at', 'desc')
+                            ->first();
+
+                        if ($pendingOutbound) {
+                            if ($msgId) {
+                                $pendingOutbound->update([
+                                    'whatsapp_message_id' => $msgId,
+                                    'sent_at' => $sentAt,
+                                ]);
+                            }
+                            $existingMsg = $pendingOutbound;
+                        }
+                    }
+
                     if (!$existingMsg) {
                         Message::create([
                             'conversation_id' => $conversation->id,
@@ -372,6 +397,30 @@ class ConversationServiceImpl implements ConversationService
                 ->first();
             if ($existing) {
                 return $existing;
+            }
+        }
+
+        // If outbound message, match with local pending message without whatsapp_message_id
+        if ($isFromMe) {
+            $pendingMsg = Message::where('conversation_id', $conversation->id)
+                ->where('is_from_me', true)
+                ->whereNull('whatsapp_message_id')
+                ->where('text', $text)
+                ->whereBetween('sent_at', [
+                    $sentAt->copy()->subMinutes(5),
+                    $sentAt->copy()->addMinutes(5),
+                ])
+                ->orderBy('sent_at', 'desc')
+                ->first();
+
+            if ($pendingMsg) {
+                if ($messageId) {
+                    $pendingMsg->update([
+                        'whatsapp_message_id' => $messageId,
+                        'sent_at' => $sentAt,
+                    ]);
+                }
+                return $pendingMsg;
             }
         }
 

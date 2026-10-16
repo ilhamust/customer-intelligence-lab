@@ -101,5 +101,15 @@ interface WhatsappGatewayService
      * @return array
      */
     public function getChatMessages(string $chatJid, ?string $deviceId = null, int $limit = 50, int $offset = 0): array;
+
+    /**
+     * Update device webhook configuration in GOWA.
+     *
+     * @param string $deviceId
+     * @param string|null $webhookUrl
+     * @return bool
+     */
+    public function setDeviceWebhook(string $deviceId, ?string $webhookUrl = null): bool;
 }
+
 
