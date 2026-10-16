@@ -6,6 +6,7 @@ use App\Events\Bot\ConversationUpdated;
 use App\Events\Bot\MessageReceived;
 use App\Exceptions\BadRequestException;
 use App\Exceptions\NotFoundException;
+use App\Jobs\Bot\AutoRestoreAiHandlerJob;
 use App\Jobs\Bot\GenerateAiReplyJob;
 use App\Models\Bot\Conversation;
 use App\Models\Bot\Message;
@@ -204,6 +205,11 @@ class ConversationServiceImpl implements ConversationService
             'message_id' => $message->id,
             'status' => $message->status,
         ]);
+
+        // Jadwalkan auto-restore ke AI setelah 10 menit inaktivitas pesan manual
+        if (($senderType ?: 'human') === 'human') {
+            AutoRestoreAiHandlerJob::dispatch($conversation->id)->delay(now()->addMinutes(10));
+        }
 
         // Broadcast to WebSocket clients
         broadcast(new MessageReceived($message, $conversation));
@@ -481,6 +487,25 @@ class ConversationServiceImpl implements ConversationService
             'meta' => $data,
         ]);
 
+        // Lazy auto-restore: Jika handler saat ini adalah human, cek apakah percakapan sudah inaktif >= 10 menit
+        if (! $isFromMe && $conversation->handler === 'human') {
+            $cutoff = now()->subMinutes(10);
+            $lastActivity = $conversation->last_message_time;
+
+            if (! $lastActivity || Carbon::parse($lastActivity)->lessThanOrEqualTo($cutoff)) {
+                $conversation->handler = 'ai';
+                $conversation->status = 'all';
+
+                $this->logInfo($m, 'Inactivity threshold (10m) reached on inbound message, auto-restoring handler to "ai"', [
+                    'conversation_id' => $conversation->id,
+                    'last_activity' => $lastActivity,
+                ]);
+
+                // Broadcast perubahan handler ke WebSocket
+                broadcast(new ConversationUpdated($conversation));
+            }
+        }
+
         $conversation->last_message = $text;
         $conversation->last_message_time = $sentAt;
         if (! $isFromMe) {
@@ -593,6 +618,9 @@ class ConversationServiceImpl implements ConversationService
                 $conversation->device_id
             );
 
+            // Jadwalkan auto-restore ke AI setelah 10 menit inaktivitas
+            AutoRestoreAiHandlerJob::dispatch($conversation->id)->delay(now()->addMinutes(10));
+
             // Broadcast status terupdate ke WebSocket agar frontend segera sync
             broadcast(new ConversationUpdated($conversation));
 
@@ -653,6 +681,11 @@ class ConversationServiceImpl implements ConversationService
                 'stop',
                 $conversation->device_id
             );
+        }
+
+        // Jika mode diubah ke human, jadwalkan auto-restore ke AI setelah 10 menit
+        if ($normalizedHandler === 'human') {
+            AutoRestoreAiHandlerJob::dispatch($conversation->id)->delay(now()->addMinutes(10));
         }
 
         // Broadcast status terbaru ke WebSocket
