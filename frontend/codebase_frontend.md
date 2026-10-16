@@ -590,8 +590,9 @@ Gaya visual yang digunakan pada aplikasi ini mengacu pada standar **Modern Flat 
 - **Kartu Status Gradien di Bawah**: Kartu lengkung modern `rounded-2xl bg-gradient-to-br from-primary to-secondary text-primary-content p-4 shadow-sm` berisi status online gateway dengan lampu hijau berkedip.
 - **Perilaku Hover-to-Expand**:
   - Saat mode ikon aktif (`isCollapsed = true`), sidebar menyusut ke `w-18` (72px) dan diberi *placeholder* agar layout konten tidak bergeser.
-  - Saat di-hover (`@mouseenter`), sidebar melebar secara dinamis ke `w-60` (240px) sebagai floating overlay (`shadow-2xl z-50`).
-  - Saat kursor lepas (`@mouseleave`), kembali ke `w-18`.
+  - **Delay 2 Detik**: Saat kursor masuk (`@mouseenter`), terdapat jeda waktu/delay **2 detik** (2000ms) sebelum sidebar melebar ke ukuran normal `w-60` (240px) sebagai floating overlay (`shadow-2xl z-50 transition-all duration-300`).
+  - **Navigasi Langsung Mode Ikon**: Saat berada di mode ikon, pengguna dapat langsung mengklik menu/ikon lain untuk berpindah rute tanpa memicu pembesaran sidebar ke ukuran normal.
+  - Saat kursor lepas (`@mouseleave`) atau item menu diklik, pembesaran dibatalkan/ditutup dan sidebar segera kembali ke ukuran mode ikon `w-18`.
 
 #### 3. Standar Topbar / Navbar (`AppNavbar.vue`)
 - **Tinggi & Batas**: `h-16` (64px) dengan `bg-base-100 border-b border-base-300 px-6 flex items-center justify-between`.

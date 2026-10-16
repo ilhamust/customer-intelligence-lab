@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 const props = defineProps({
@@ -13,11 +13,16 @@ defineEmits(['toggle'])
 
 const route = useRoute()
 const isHovered = ref(false)
+let hoverTimer = null
 
 // Reset hover state if collapse state changes from toggle button
 watch(
   () => props.isCollapsed,
   () => {
+    if (hoverTimer) {
+      clearTimeout(hoverTimer)
+      hoverTimer = null
+    }
     isHovered.value = false
   }
 )
@@ -26,13 +31,40 @@ const isExpanded = computed(() => !props.isCollapsed || isHovered.value)
 
 const handleMouseEnter = () => {
   if (props.isCollapsed) {
-    isHovered.value = true
+    if (hoverTimer) clearTimeout(hoverTimer)
+    // Delay 2 detik sebelum melebar ke ukuran normal
+    hoverTimer = setTimeout(() => {
+      isHovered.value = true
+    }, 2000)
   }
 }
 
 const handleMouseLeave = () => {
+  if (hoverTimer) {
+    clearTimeout(hoverTimer)
+    hoverTimer = null
+  }
   isHovered.value = false
 }
+
+const handleMenuClick = () => {
+  // Batalkan timer hover tertunda
+  if (hoverTimer) {
+    clearTimeout(hoverTimer)
+    hoverTimer = null
+  }
+  // Saat mode icon, klik menu tetap mempertahankan ukuran icon tanpa membesarkan sidebar
+  if (props.isCollapsed) {
+    isHovered.value = false
+  }
+}
+
+onBeforeUnmount(() => {
+  if (hoverTimer) {
+    clearTimeout(hoverTimer)
+    hoverTimer = null
+  }
+})
 
 const menus = [
   {
@@ -90,7 +122,7 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
   <aside
     @mouseenter="handleMouseEnter"
     @mouseleave="handleMouseLeave"
-    class="bg-base-100 border-r border-base-300 flex flex-col h-full select-none shrink-0 transition-all duration-200 ease-in-out"
+    class="bg-base-100 border-r border-base-300 flex flex-col h-full select-none shrink-0 transition-all duration-300 ease-in-out"
     :class="[
       isCollapsed
         ? 'fixed left-0 top-0 bottom-0 z-50 ' + (isExpanded ? 'w-60 shadow-2xl' : 'w-18 shadow-xs')
@@ -99,19 +131,19 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
   >
     <!-- Brand Header -->
     <div
-      class="h-16 border-b border-base-300 flex items-center shrink-0 transition-all duration-200"
+      class="h-16 border-b border-base-300 flex items-center shrink-0 transition-all duration-300"
       :class="[isExpanded ? 'justify-between px-5' : 'justify-center px-0']"
     >
       <router-link
         to="/app/conversations"
+        @click="handleMenuClick"
         class="flex items-center gap-2.5 min-w-0 group"
         :title="!isExpanded ? 'Intelligence Lab' : undefined"
       >
-
         <!-- Brand Text (Hanya tampil saat expanded/hovered) -->
         <span
           v-if="isExpanded"
-          class="text-[15px] font-black text-base-content tracking-tight truncate"
+          class="text-[15px] font-black text-base-content tracking-tight truncate whitespace-nowrap"
         >
           Intelligence Lab
         </span>
@@ -135,7 +167,7 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
     <nav class="flex-1 p-3 space-y-1.5 overflow-y-auto overflow-x-hidden">
       <!-- Section Title "MAIN MENU" -->
       <div v-if="isExpanded" class="px-2 pt-2 pb-1.5">
-        <span class="text-[10px] font-extrabold text-base-content/40 uppercase tracking-wider">
+        <span class="text-[10px] font-extrabold text-base-content/40 uppercase tracking-wider whitespace-nowrap">
           Main Menu
         </span>
       </div>
@@ -145,6 +177,7 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
         <router-link
           v-if="!menu.disabled"
           :to="menu.to"
+          @click="handleMenuClick"
           :title="!isExpanded ? menu.name : undefined"
           class="flex items-center rounded-xl text-xs transition-all duration-150 font-semibold"
           :class="[
@@ -166,7 +199,7 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
           </svg>
 
           <!-- Menu Label -->
-          <span v-if="isExpanded" class="truncate tracking-tight">{{ menu.name }}</span>
+          <span v-if="isExpanded" class="truncate tracking-tight whitespace-nowrap">{{ menu.name }}</span>
         </router-link>
 
         <!-- Disabled / Coming Soon Item -->
@@ -209,13 +242,13 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
           </svg>
 
           <!-- Menu Label -->
-          <span v-if="isExpanded" class="truncate">{{ menu.name }}</span>
+          <span v-if="isExpanded" class="truncate whitespace-nowrap">{{ menu.name }}</span>
         </div>
       </template>
     </nav>
 
     <!-- Bottom Promo / Status Card ala Referensi Consist -->
-    <div v-if="isExpanded" class="p-3 shrink-0">
+    <div v-if="isExpanded" class="p-3 shrink-0 animate-in fade-in duration-300 overflow-hidden">
       <div class="rounded-2xl bg-gradient-to-br from-primary to-secondary text-primary-content p-4 shadow-sm space-y-2">
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-emerald-300 animate-pulse"></span>
