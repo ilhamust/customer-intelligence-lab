@@ -44,23 +44,29 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
     public function provider(): array
     {
         $chain = [];
+        $default = env('AI_DEFAULT_PROVIDER', 'groq');
 
-        // Google Gemini (Provider Utama)
+        // Jika default adalah groq, posisikan groq di urutan pertama (ultra low latency < 1s)
+        if ($default === 'groq' && config('ai.providers.groq.key')) {
+            $chain['groq'] = env('AI_GROQ_MODEL', null);
+        }
+
+        // Google Gemini
         if (config('ai.providers.gemini.key')) {
             $chain['gemini'] = env('AI_GEMINI_MODEL', null);
         }
 
-        // Groq (Cadangan Cepat jika Gemini limit)
-        if (config('ai.providers.groq.key')) {
+        // Groq sebagai cadangan jika bukan default
+        if (! isset($chain['groq']) && config('ai.providers.groq.key')) {
             $chain['groq'] = env('AI_GROQ_MODEL', null);
         }
 
-        // OpenAI (Cadangan Tambahan)
+        // OpenAI sebagai cadangan
         if (config('ai.providers.openai.key')) {
             $chain['openai'] = env('AI_OPENAI_MODEL', 'gpt-4o-mini');
         }
 
-        return ! empty($chain) ? $chain : [config('ai.default', 'gemini')];
+        return ! empty($chain) ? $chain : [config('ai.default', 'groq')];
     }
 
     /**

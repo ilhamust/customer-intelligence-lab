@@ -10,7 +10,6 @@ use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use App\Traits\ServiceHelper;
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 class GowaGatewayServiceImpl implements WhatsappGatewayService
@@ -18,10 +17,15 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
     use ServiceHelper;
 
     protected string $baseUrl;
+
     protected string $username;
+
     protected string $password;
+
     protected string $defaultDeviceId;
+
     protected string $webhookSecret;
+
     protected ?string $webhookUrl;
 
     public function __construct()
@@ -59,11 +63,12 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
     {
         $url = $this->webhookUrl ?: config('services.gowa.target_webhook_url');
 
-        if (!empty($url)) {
+        if (! empty($url)) {
             // When running in Docker/Sail, replace localhost/127.0.0.1 with laravel.test
             if (env('LARAVEL_SAIL') && (str_contains($url, 'localhost') || str_contains($url, '127.0.0.1'))) {
                 return 'http://laravel.test/api/v1/webhooks/whatsapp';
             }
+
             return $url;
         }
 
@@ -84,6 +89,7 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
             if ($response->status() === 404 || str_contains($response->body(), 'not found')) {
                 // Device not found in GOWA, mark DB record as disconnected
                 WhatsappChannel::where('device_id', $id)->update(['status' => 'disconnected']);
+
                 return [
                     'device_id' => $id,
                     'is_registered' => false,
@@ -94,8 +100,8 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                 ];
             }
 
-            if (!$response->successful()) {
-                throw new InternalServerException('Failed to get device status from GOWA: ' . $response->body());
+            if (! $response->successful()) {
+                throw new InternalServerException('Failed to get device status from GOWA: '.$response->body());
             }
 
             $results = $response->json('results', []);
@@ -116,7 +122,7 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
             } else {
                 WhatsappChannel::create([
                     'device_id' => $id,
-                    'name' => 'Gateway ' . $id,
+                    'name' => 'Gateway '.$id,
                     'status' => $status,
                     'jid' => $jid,
                     'phone_number' => $jid ? explode('@', $jid)[0] : null,
@@ -155,12 +161,12 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
             'webhook_insecure_skip_verify' => false,
         ]);
 
-        if (!$response->successful() && $response->status() !== 409) {
+        if (! $response->successful() && $response->status() !== 409) {
             $this->logError($m, 'Failed to register device in GOWA', [
                 'device_id' => $deviceId,
                 'response' => $response->body(),
             ]);
-            throw new BadRequestException('Failed to register device in GOWA: ' . $response->body());
+            throw new BadRequestException('Failed to register device in GOWA: '.$response->body());
         }
 
         $channel = WhatsappChannel::updateOrCreate(
@@ -190,32 +196,32 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
 
         $response = $this->client()->get("/devices/{$id}/login");
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             $this->logError($m, 'Failed to request login QR from GOWA', [
                 'device_id' => $id,
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
-            throw new BadRequestException('Failed to get QR code: ' . $response->json('message', $response->body()));
+            throw new BadRequestException('Failed to get QR code: '.$response->json('message', $response->body()));
         }
 
         $results = $response->json('results', []);
         $qrLink = $results['qr_link'] ?? null;
         $duration = (int) ($results['qr_duration'] ?? 30);
 
-        if (!$qrLink) {
+        if (! $qrLink) {
             throw new InternalServerException('QR link missing from GOWA response');
         }
 
         // Download QR image into memory
         $imageResponse = $this->client()->get($qrLink);
 
-        if (!$imageResponse->successful()) {
+        if (! $imageResponse->successful()) {
             throw new InternalServerException('Failed to download QR code image from GOWA');
         }
 
         // Convert in-memory bytes to Base64 Data URL (zero disk footprint)
-        $base64Image = 'data:image/png;base64,' . base64_encode($imageResponse->body());
+        $base64Image = 'data:image/png;base64,'.base64_encode($imageResponse->body());
 
         WhatsappChannel::where('device_id', $id)->update(['status' => 'pairing']);
 
@@ -240,8 +246,8 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
 
         $response = $this->client()->post("/devices/{$id}/login/code?phone={$phone}");
 
-        if (!$response->successful()) {
-            throw new BadRequestException('Failed to get pairing code: ' . $response->json('message', $response->body()));
+        if (! $response->successful()) {
+            throw new BadRequestException('Failed to get pairing code: '.$response->json('message', $response->body()));
         }
 
         $results = $response->json('results', []);
@@ -307,13 +313,14 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                 'message' => $message,
             ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             $this->logError($m, 'Failed to send text message via GOWA', [
                 'device_id' => $id,
                 'phone' => $phone,
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
+
             return false;
         }
 
@@ -323,13 +330,51 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
     }
 
     /**
+     * Send chat presence (typing indicator) via GOWA REST API.
+     */
+    public function sendChatPresence(string $phone, string $action = 'start', ?string $deviceId = null): bool
+    {
+        $m = __METHOD__;
+        $id = $this->resolveDeviceId($deviceId);
+
+        try {
+            $response = $this->client()
+                ->withHeaders(['X-Device-Id' => $id])
+                ->post('/send/chat-presence', [
+                    'phone' => $phone,
+                    'action' => $action,
+                ]);
+
+            if (! $response->successful()) {
+                $this->logWarning($m, 'Failed sending chat presence to GOWA', [
+                    'device_id' => $id,
+                    'phone' => $phone,
+                    'action' => $action,
+                    'status' => $response->status(),
+                ]);
+
+                return false;
+            }
+
+            return true;
+        } catch (Exception $e) {
+            $this->logWarning($m, 'Exception when sending chat presence to GOWA: '.$e->getMessage(), [
+                'device_id' => $id,
+                'phone' => $phone,
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
      * Helper to auto-create device in GOWA if not registered yet.
      */
     protected function ensureDeviceExists(string $deviceId): void
     {
         $check = $this->client()->get("/devices/{$deviceId}");
         if ($check->status() === 404) {
-            $this->registerDevice($deviceId, 'Gateway ' . $deviceId);
+            $this->registerDevice($deviceId, 'Gateway '.$deviceId);
         }
     }
 
@@ -350,7 +395,7 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                     if (is_array($results)) {
                         foreach ($results as $item) {
                             $devId = $item['id'] ?? $item['device_id'] ?? null;
-                            if (!empty($devId)) {
+                            if (! empty($devId)) {
                                 $gowaDevices[$devId] = $item;
                             }
                         }
@@ -366,7 +411,7 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
             $channels = WhatsappChannel::orderBy('created_at', 'desc')->get();
 
             // If DB is empty but GOWA has devices, sync them to DB
-            if ($channels->isEmpty() && !empty($gowaDevices)) {
+            if ($channels->isEmpty() && ! empty($gowaDevices)) {
                 foreach ($gowaDevices as $devId => $devData) {
                     $state = strtolower($devData['state'] ?? '');
                     $isLoggedIn = (bool) ($devData['is_logged_in'] ?? ($state === 'logged_in'));
@@ -377,7 +422,7 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
 
                     WhatsappChannel::create([
                         'device_id' => $devId,
-                        'name' => $devData['display_name'] ?? $devData['name'] ?? ('Gateway ' . $devId),
+                        'name' => $devData['display_name'] ?? $devData['name'] ?? ('Gateway '.$devId),
                         'status' => $status,
                         'jid' => $jid,
                         'phone_number' => $phone,
@@ -438,14 +483,14 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
         $m = __METHOD__;
 
         $channel = WhatsappChannel::where('device_id', $deviceId)->first();
-        if (!$channel) {
+        if (! $channel) {
             throw new NotFoundException("WhatsApp device [{$deviceId}] not found.");
         }
 
         try {
             // Delete from GOWA
             $response = $this->client()->delete("/devices/{$deviceId}");
-            if (!$response->successful() && $response->status() !== 404) {
+            if (! $response->successful() && $response->status() !== 404) {
                 $this->logWarning($m, 'Failed to delete device in GOWA, proceeding with DB removal', [
                     'device_id' => $deviceId,
                     'status' => $response->status(),
@@ -481,12 +526,13 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                     'offset' => $offset,
                 ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 $this->logError($m, 'Failed to fetch chats from GOWA', [
                     'device_id' => $id,
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
+
                 return [];
             }
 
@@ -496,6 +542,7 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                 'device_id' => $id,
                 'error' => $e->getMessage(),
             ]);
+
             return [];
         }
     }
@@ -516,13 +563,14 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                     'offset' => $offset,
                 ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 $this->logError($m, 'Failed to fetch chat messages from GOWA', [
                     'device_id' => $id,
                     'chat_jid' => $chatJid,
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
+
                 return [];
             }
 
@@ -533,6 +581,7 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                 'chat_jid' => $chatJid,
                 'error' => $e->getMessage(),
             ]);
+
             return [];
         }
     }
@@ -554,12 +603,13 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                 'webhook_insecure_skip_verify' => false,
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 $this->logError($m, 'Failed to update device webhook in GOWA', [
                     'device_id' => $id,
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
+
                 return false;
             }
 
@@ -574,8 +624,8 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
                 'device_id' => $id,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
 }
-

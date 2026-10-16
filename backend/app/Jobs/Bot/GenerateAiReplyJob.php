@@ -81,6 +81,9 @@ class GenerateAiReplyJob implements ShouldQueue
 
         Log::info('[GenerateAiReplyJob] Generating AI reply via CustomerSupportAgent', $logContext);
 
+        // Kirim indikator "sedang mengetik..." (typing indicator) ke WhatsApp pelanggan
+        $whatsappGateway->sendChatPresence($conversation->phone, 'start', $conversation->device_id);
+
         try {
             // 4. Inisialisasi CustomerSupportAgent dengan histori percakapan
             $agent = new CustomerSupportAgent($conversation, $incomingMsg->id);
@@ -116,7 +119,8 @@ class GenerateAiReplyJob implements ShouldQueue
                 'sent_at' => now(),
                 'meta' => [
                     'ai_generated' => true,
-                    'provider' => $response->meta['provider'] ?? 'ai',
+                    'provider' => $response->meta?->provider ?? 'ai',
+                    'model' => $response->meta?->model ?? null,
                 ],
             ]);
 
