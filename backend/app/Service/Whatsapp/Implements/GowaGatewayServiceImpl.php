@@ -339,6 +339,7 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
 
         try {
             $response = $this->client()
+                ->timeout(2)
                 ->withHeaders(['X-Device-Id' => $id])
                 ->post('/send/chat-presence', [
                     'phone' => $phone,

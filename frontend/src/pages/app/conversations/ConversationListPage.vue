@@ -17,16 +17,15 @@ const onAdminTyping = async () => {
   const activeConv = p$conv.g$activeConversation
   if (!activeConv) return
 
-  // Saat karakter pertama diketik: panggil sendTyping start dan set local state
+  // Saat karakter pertama diketik: langsung set state optimis dan kirim request non-blocking
   if (!isTypingActive) {
     isTypingActive = true
-    try {
-      await s$conversation.sendTyping(activeConv.id, 'start')
-      activeConv.handler = 'human'
-      activeConv.status = 'escalated'
-    } catch (e) {
+    activeConv.handler = 'human'
+    activeConv.status = 'escalated'
+
+    s$conversation.sendTyping(activeConv.id, 'start').catch((e) => {
       console.warn('Failed to send typing start presence', e)
-    }
+    })
   }
 
   // Reset timer debounce 3.5 detik idle
@@ -162,22 +161,31 @@ const handleToggleHandler = async (targetMode) => {
   const activeConv = p$conv.g$activeConversation
   if (!activeConv || updatingHandler.value) return
 
+  // Simpan state sebelumnya untuk rollback jika request gagal
+  const prevHandler = activeConv.handler
+  const prevStatus = activeConv.status
+
+  // Optimistic UI update: langsung ubah status seketika (0ms delay)
+  activeConv.handler = targetMode
+  activeConv.status = targetMode === 'ai' ? 'all' : 'escalated'
+
   // Jika memindahkan ke AI saat sedang mengetik, matikan typing presence
   if (targetMode === 'ai' && isTypingActive) {
-    await onAdminStopTyping()
+    onAdminStopTyping()
   }
 
   updatingHandler.value = true
   try {
     await s$conversation.updateHandler(activeConv.id, targetMode)
-    activeConv.handler = targetMode
-    activeConv.status = targetMode === 'ai' ? 'all' : 'escalated'
     notify.success(
       targetMode === 'ai'
         ? 'Percakapan berhasil dikembalikan ke mode AI'
         : 'Percakapan berhasil diambil alih ke mode Human'
     )
   } catch (e) {
+    // Rollback jika gagal
+    activeConv.handler = prevHandler
+    activeConv.status = prevStatus
     notify.error(e?.message ?? e ?? 'Gagal mengubah mode percakapan')
   } finally {
     updatingHandler.value = false

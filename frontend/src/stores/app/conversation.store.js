@@ -62,7 +62,20 @@ export const useConversationStore = defineStore('conversation', () => {
       })
 
       const listData = res?.data?.data ?? res?.data ?? []
-      conversations.value = Array.isArray(listData) ? listData : []
+      const newList = Array.isArray(listData) ? listData : []
+
+      // Pertahankan riwayat pesan aktif di memori jika sudah termuat agar tidak ter-reset
+      if (activeId.value) {
+        const existingActive = conversations.value.find((c) => c.id === activeId.value)
+        if (existingActive?.messages?.length) {
+          const newActive = newList.find((c) => c.id === activeId.value)
+          if (newActive && (!newActive.messages || newActive.messages.length === 0)) {
+            newActive.messages = existingActive.messages
+          }
+        }
+      }
+
+      conversations.value = newList
 
       // Otomatis pilih item pertama jika belum ada yang aktif
       if (!activeId.value && conversations.value.length > 0) {
@@ -81,10 +94,10 @@ export const useConversationStore = defineStore('conversation', () => {
     }
   }
 
-  const a$fetchMessages = async (id) => {
+  const a$fetchMessages = async (id, limit = 100) => {
     if (!id) return
     try {
-      const res = await s$conversation.getMessages(id)
+      const res = await s$conversation.getMessages(id, { limit })
       const msgs = res?.data ?? []
       const target = conversations.value.find((c) => c.id === id)
       if (target) {

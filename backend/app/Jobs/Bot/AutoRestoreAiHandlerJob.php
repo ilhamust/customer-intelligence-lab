@@ -77,9 +77,20 @@ class AutoRestoreAiHandlerJob implements ShouldQueue
 
         $cutoffTime = now()->subMinutes($this->inactivityMinutes);
 
-        // Jika ada pesan human yang dikirim kurang dari 10 menit yang lalu, artinya operator masih aktif berinteraksi
+        // Validasi 1: Apakah percakapan baru saja disentuh/diupdate oleh admin (misal mulai mengetik atau toggle manual)?
+        if ($conversation->updated_at && Carbon::parse($conversation->updated_at)->greaterThan($cutoffTime)) {
+            Log::info('[AutoRestoreAiHandlerJob] Conversation was updated recently by human action, skipping auto-restore', [
+                ...$logContext,
+                'conversation_updated_at' => $conversation->updated_at->toIso8601String(),
+                'cutoff_time' => $cutoffTime->toIso8601String(),
+            ]);
+
+            return;
+        }
+
+        // Validasi 2: Apakah ada pesan human yang dikirim kurang dari 10 menit yang lalu?
         if ($latestHumanMessage && $latestHumanMessage->sent_at && Carbon::parse($latestHumanMessage->sent_at)->greaterThan($cutoffTime)) {
-            Log::info('[AutoRestoreAiHandlerJob] Human agent was active recently, skipping auto-restore', [
+            Log::info('[AutoRestoreAiHandlerJob] Human agent sent message recently, skipping auto-restore', [
                 ...$logContext,
                 'latest_human_message_at' => $latestHumanMessage->sent_at,
                 'cutoff_time' => $cutoffTime->toIso8601String(),

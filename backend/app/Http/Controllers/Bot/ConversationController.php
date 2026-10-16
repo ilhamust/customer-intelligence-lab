@@ -77,7 +77,7 @@ class ConversationController extends Controller
         $ctx = __METHOD__;
 
         try {
-            $limit = (int) $request->input('limit', 50);
+            $limit = (int) $request->input('limit', 100);
             $messages = $this->conversationService->getMessages($id, $limit);
 
             return $this->respondWithData($messages, 'Successfully retrieved conversation messages');

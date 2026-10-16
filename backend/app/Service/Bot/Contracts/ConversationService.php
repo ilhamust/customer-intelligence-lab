@@ -20,7 +20,7 @@ interface ConversationService
     /**
      * Get message history for a conversation.
      */
-    public function getMessages(string $conversationId, int $limit = 50): array;
+    public function getMessages(string $conversationId, int $limit = 100): array;
 
     /**
      * Send an outgoing message in a conversation via WhatsApp Gateway and persist to DB.

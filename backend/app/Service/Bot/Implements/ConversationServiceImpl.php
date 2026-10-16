@@ -107,15 +107,11 @@ class ConversationServiceImpl implements ConversationService
     }
 
     /**
-     * Get a single conversation by ID with its messages.
+     * Get a single conversation by ID.
      */
     public function show(string $conversationId): Conversation
     {
-        $conversation = Conversation::with([
-            'messages' => function ($q) {
-                $q->orderBy('sent_at', 'asc');
-            },
-        ])->find($conversationId);
+        $conversation = Conversation::find($conversationId);
 
         if (! $conversation) {
             throw new NotFoundException("Conversation [{$conversationId}] not found.");
@@ -130,16 +126,18 @@ class ConversationServiceImpl implements ConversationService
     }
 
     /**
-     * Get message history for a conversation.
+     * Get message history for a conversation, retrieving the most recent messages.
      */
-    public function getMessages(string $conversationId, int $limit = 50): array
+    public function getMessages(string $conversationId, int $limit = 100): array
     {
         $conversation = $this->show($conversationId);
 
-        $messages = $conversation->messages()
-            ->orderBy('sent_at', 'asc')
+        $messages = Message::where('conversation_id', $conversation->id)
+            ->orderBy('sent_at', 'desc')
             ->limit($limit)
-            ->get();
+            ->get()
+            ->reverse()
+            ->values();
 
         return $messages->map(fn (Message $m) => $this->formatMessage($m))->all();
     }
@@ -522,13 +520,14 @@ class ConversationServiceImpl implements ConversationService
         broadcast(new MessageReceived($message, $conversation));
 
         // Automatically trigger AI reply if conversation handler is 'ai' and message is from customer
+        // Beri jeda grace period 6 detik agar admin manusia memiliki waktu untuk membaca dan mulai mengetik jika ingin ambil alih
         if (! $isFromMe && $conversation->handler === 'ai') {
-            $this->logInfo($m, 'Dispatching GenerateAiReplyJob for incoming customer message', [
+            $this->logInfo($m, 'Dispatching GenerateAiReplyJob for incoming customer message with 6s human grace period', [
                 'conversation_id' => $conversation->id,
                 'message_id' => $message->id,
             ]);
 
-            GenerateAiReplyJob::dispatch($conversation->id, $message->id);
+            GenerateAiReplyJob::dispatch($conversation->id, $message->id)->delay(now()->addSeconds(6));
         }
 
         return $message;
@@ -564,7 +563,9 @@ class ConversationServiceImpl implements ConversationService
             'last_message' => $c->last_message ?? '',
             'lastMessageTime' => $c->last_message_time?->toIso8601String(),
             'last_message_time' => $c->last_message_time?->toIso8601String(),
-            'messages' => $c->messages->map(fn (Message $m) => $this->formatMessage($m))->values()->all(),
+            'messages' => $c->relationLoaded('messages')
+                ? $c->messages->map(fn (Message $m) => $this->formatMessage($m))->values()->all()
+                : [],
         ];
     }
 
@@ -605,24 +606,27 @@ class ConversationServiceImpl implements ConversationService
         }
 
         if ($normalizedAction === 'start') {
-            // Takeover to human and escalate status
+            // 1. Update database dan broadcast TERLEBIH DAHULU agar UI & status server berubah dalam < 5ms
             $conversation->update([
                 'handler' => 'human',
                 'status' => 'escalated',
             ]);
 
-            // Kirim presence "sedang mengetik..." ke WhatsApp pelanggan
-            $this->whatsappGateway->sendChatPresence(
-                $conversation->phone,
-                'start',
-                $conversation->device_id
-            );
+            broadcast(new ConversationUpdated($conversation));
 
-            // Jadwalkan auto-restore ke AI setelah 10 menit inaktivitas
+            // 2. Jadwalkan auto-restore ke AI setelah 10 menit inaktivitas
             AutoRestoreAiHandlerJob::dispatch($conversation->id)->delay(now()->addMinutes(10));
 
-            // Broadcast status terupdate ke WebSocket agar frontend segera sync
-            broadcast(new ConversationUpdated($conversation));
+            // 3. Kirim presence "sedang mengetik..." ke WhatsApp pelanggan (non-blocking jika error/timeout)
+            try {
+                $this->whatsappGateway->sendChatPresence(
+                    $conversation->phone,
+                    'start',
+                    $conversation->device_id
+                );
+            } catch (Exception $e) {
+                $this->logWarning($m, 'Could not send chat presence start to gateway: '.$e->getMessage());
+            }
 
             $this->logInfo($m, 'Operator started typing, takeover to human enabled', [
                 'conversation_id' => $conversation->id,
@@ -630,11 +634,15 @@ class ConversationServiceImpl implements ConversationService
             ]);
         } else {
             // action === 'stop'
-            $this->whatsappGateway->sendChatPresence(
-                $conversation->phone,
-                'stop',
-                $conversation->device_id
-            );
+            try {
+                $this->whatsappGateway->sendChatPresence(
+                    $conversation->phone,
+                    'stop',
+                    $conversation->device_id
+                );
+            } catch (Exception $e) {
+                $this->logWarning($m, 'Could not send chat presence stop to gateway: '.$e->getMessage());
+            }
 
             $this->logInfo($m, 'Operator stopped typing', [
                 'conversation_id' => $conversation->id,
@@ -669,27 +677,31 @@ class ConversationServiceImpl implements ConversationService
 
         $newStatus = $normalizedHandler === 'ai' ? 'all' : 'escalated';
 
+        // 1. Update database dan broadcast TERLEBIH DAHULU agar status langsung responsif (< 5ms)
         $conversation->update([
             'handler' => $normalizedHandler,
             'status' => $newStatus,
         ]);
 
-        // Jika dikembalikan ke AI, pastikan presence typing dimatikan
-        if ($normalizedHandler === 'ai') {
-            $this->whatsappGateway->sendChatPresence(
-                $conversation->phone,
-                'stop',
-                $conversation->device_id
-            );
-        }
+        broadcast(new ConversationUpdated($conversation));
 
-        // Jika mode diubah ke human, jadwalkan auto-restore ke AI setelah 10 menit
+        // 2. Jika mode diubah ke human, jadwalkan auto-restore ke AI setelah 10 menit
         if ($normalizedHandler === 'human') {
             AutoRestoreAiHandlerJob::dispatch($conversation->id)->delay(now()->addMinutes(10));
         }
 
-        // Broadcast status terbaru ke WebSocket
-        broadcast(new ConversationUpdated($conversation));
+        // 3. Jika dikembalikan ke AI, pastikan presence typing dimatikan di WhatsApp pelanggan
+        if ($normalizedHandler === 'ai') {
+            try {
+                $this->whatsappGateway->sendChatPresence(
+                    $conversation->phone,
+                    'stop',
+                    $conversation->device_id
+                );
+            } catch (Exception $e) {
+                $this->logWarning($m, 'Could not send chat presence stop to gateway on AI restore: '.$e->getMessage());
+            }
+        }
 
         $this->logInfo($m, 'Conversation handler updated manually', [
             'conversation_id' => $conversation->id,
@@ -697,6 +709,12 @@ class ConversationServiceImpl implements ConversationService
             'status' => $newStatus,
         ]);
 
-        return $this->formatConversation($conversation);
+        // Kembalikan metadata ringkas tanpa menimpa array messages di client
+        return [
+            'id' => $conversation->id,
+            'handler' => $normalizedHandler,
+            'status' => $newStatus,
+            'updated_at' => $conversation->updated_at?->toIso8601String(),
+        ];
     }
 }
