@@ -2,6 +2,7 @@
 
 namespace App\Service\Bot\Implements;
 
+use App\Events\Bot\MessageReceived;
 use App\Exceptions\BadRequestException;
 use App\Exceptions\NotFoundException;
 use App\Models\Bot\Conversation;
@@ -178,6 +179,9 @@ class ConversationServiceImpl implements ConversationService
             'message_id' => $message->id,
             'status' => $message->status,
         ]);
+
+        // Broadcast to WebSocket clients
+        broadcast(new MessageReceived($message, $conversation));
 
         return $message;
     }
@@ -446,6 +450,9 @@ class ConversationServiceImpl implements ConversationService
             'conversation_id' => $conversation->id,
             'message_id' => $message->id,
         ]);
+
+        // Broadcast incoming message to WebSocket clients
+        broadcast(new MessageReceived($message, $conversation));
 
         return $message;
     }
