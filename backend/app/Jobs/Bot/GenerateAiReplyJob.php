@@ -37,7 +37,8 @@ class GenerateAiReplyJob implements ShouldQueue
     public function __construct(
         public string $conversationId,
         public string $incomingMessageId
-    ) {}
+    ) {
+    }
 
     /**
      * Execute the job.
@@ -49,24 +50,24 @@ class GenerateAiReplyJob implements ShouldQueue
             'message_id' => $this->incomingMessageId,
         ];
 
-        // 1. Ambil data percakapan
+        // Ambil data percakapan
         $conversation = Conversation::find($this->conversationId);
-        if (! $conversation) {
+        if (!$conversation) {
             Log::warning('[GenerateAiReplyJob] Conversation not found, aborting', $logContext);
 
             return;
         }
 
-        // 2. Validasi handler: hanya balas jika handler aktif adalah 'ai'
+        // Validasi handler: hanya balas jika handler aktif adalah 'ai'
         if ($conversation->handler !== 'ai') {
             Log::info('[GenerateAiReplyJob] Conversation handler is not "ai" (escalated to human), skipping auto-reply', $logContext);
 
             return;
         }
 
-        // 3. Ambil data pesan pelanggan yang memicu job ini
+        // Ambil data pesan pelanggan yang memicu job ini
         $incomingMsg = Message::find($this->incomingMessageId);
-        if (! $incomingMsg || $incomingMsg->is_from_me) {
+        if (!$incomingMsg || $incomingMsg->is_from_me) {
             Log::info('[GenerateAiReplyJob] Incoming message is invalid or sent by operator, skipping', $logContext);
 
             return;
@@ -85,13 +86,14 @@ class GenerateAiReplyJob implements ShouldQueue
         $whatsappGateway->sendChatPresence($conversation->phone, 'start', $conversation->device_id);
 
         try {
-            // 4. Inisialisasi CustomerSupportAgent dengan histori percakapan
+            // Inisialisasi CustomerSupportAgent dengan histori percakapan
             $agent = new CustomerSupportAgent($conversation, $incomingMsg->id);
             $response = $agent->prompt($promptText);
             $replyText = trim((string) $response->text);
 
             if ($replyText === '') {
                 Log::warning('[GenerateAiReplyJob] AI agent returned an empty response', $logContext);
+                $whatsappGateway->sendChatPresence($conversation->phone, 'stop', $conversation->device_id);
 
                 return;
             }
@@ -101,14 +103,40 @@ class GenerateAiReplyJob implements ShouldQueue
                 'reply_length' => mb_strlen($replyText),
             ]);
 
-            // 5. Kirim balasan ke nomor pelanggan melalui WhatsApp Gateway
+            // Safety Guard: Validasi ulang sebelum pengiriman pesan ke WhatsApp
+            // Mengecek apakah admin telah mulai mengetik / mengambil alih percakapan atau sudah membalas manual
+            $conversation->refresh();
+            $humanAlreadyReplied = Message::where('conversation_id', $conversation->id)
+                ->where('is_from_me', true)
+                ->where('sender_type', 'human')
+                ->where('created_at', '>=', $incomingMsg->created_at)
+                ->exists();
+
+            if ($conversation->handler !== 'ai' || $humanAlreadyReplied) {
+                Log::info('[GenerateAiReplyJob] Safety guard triggered: Human takeover or human already replied, aborting AI reply', [
+                    ...$logContext,
+                    'handler' => $conversation->handler,
+                    'human_already_replied' => $humanAlreadyReplied,
+                ]);
+
+                // Jika admin sudah membalas, matikan presence.
+                // Namun jika admin sedang mengambil alih (sedang mengetik balasan manual),
+                // biarkan indikator "sedang mengetik..." tetap aktif di WhatsApp pelanggan.
+                if ($humanAlreadyReplied) {
+                    $whatsappGateway->sendChatPresence($conversation->phone, 'stop', $conversation->device_id);
+                }
+
+                return;
+            }
+
+            // Kirim balasan ke nomor pelanggan melalui WhatsApp Gateway
             $sent = $whatsappGateway->sendText(
                 $conversation->phone,
                 $replyText,
                 $conversation->device_id
             );
 
-            // 6. Simpan pesan balasan bot ke database
+            // Simpan pesan balasan bot ke database
             $botMessage = Message::create([
                 'conversation_id' => $conversation->id,
                 'whatsapp_message_id' => null,
@@ -124,7 +152,7 @@ class GenerateAiReplyJob implements ShouldQueue
                 ],
             ]);
 
-            // 7. Update status percakapan terakhir
+            // Update status percakapan terakhir
             $conversation->update([
                 'last_message' => $replyText,
                 'last_message_time' => $botMessage->sent_at,
@@ -137,11 +165,14 @@ class GenerateAiReplyJob implements ShouldQueue
                 'gateway_status' => $sent ? 'delivered' : 'failed',
             ]);
 
-            // 8. Broadcast event agar tampilan chat di web dashboard terupdate secara realtime
+            // Broadcast event agar tampilan chat di web dashboard terupdate secara realtime
             broadcast(new MessageReceived($botMessage, $conversation));
 
         } catch (Exception $e) {
-            Log::error('[GenerateAiReplyJob] Failed to generate or send AI reply: '.$e->getMessage(), [
+            // Pastikan presence typing dimatikan jika terjadi error
+            $whatsappGateway->sendChatPresence($conversation->phone, 'stop', $conversation->device_id);
+
+            Log::error('[GenerateAiReplyJob] Failed to generate or send AI reply: ' . $e->getMessage(), [
                 ...$logContext,
                 'exception' => $e,
             ]);

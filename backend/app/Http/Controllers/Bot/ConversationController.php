@@ -135,4 +135,50 @@ class ConversationController extends Controller
             return $this->handleUnexpected($e, $ctx, 'Failed to synchronize conversations from WhatsApp gateway.');
         }
     }
+
+    /**
+     * Handle operator typing presence and takeover.
+     */
+    public function typing(string $id, Request $request): DataResource|ErrorResource|InternalErrorResource
+    {
+        $ctx = __METHOD__;
+
+        try {
+            $action = $request->input('action', 'start');
+            $result = $this->conversationService->handleTyping($id, $action);
+
+            return $this->respondWithData($result, "Typing presence [{$action}] processed successfully");
+        } catch (NotFoundException $e) {
+            return $this->handleNotFound($e, $ctx);
+        } catch (BadRequestException $e) {
+            return $this->handleBadRequest($e, $ctx);
+        } catch (InternalServerException $e) {
+            return $this->handleInternal($e, $ctx);
+        } catch (Exception $e) {
+            return $this->handleUnexpected($e, $ctx, 'Failed to process typing presence.');
+        }
+    }
+
+    /**
+     * Update conversation handler mode ('ai' or 'human').
+     */
+    public function updateHandler(string $id, Request $request): DataResource|ErrorResource|InternalErrorResource
+    {
+        $ctx = __METHOD__;
+
+        try {
+            $handler = (string) $request->input('handler');
+            $result = $this->conversationService->updateHandler($id, $handler);
+
+            return $this->respondWithData($result, "Conversation handler updated to [{$handler}] successfully");
+        } catch (NotFoundException $e) {
+            return $this->handleNotFound($e, $ctx);
+        } catch (BadRequestException $e) {
+            return $this->handleBadRequest($e, $ctx);
+        } catch (InternalServerException $e) {
+            return $this->handleInternal($e, $ctx);
+        } catch (Exception $e) {
+            return $this->handleUnexpected($e, $ctx, 'Failed to update conversation handler.');
+        }
+    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Service\Bot\Implements;
 
+use App\Events\Bot\ConversationUpdated;
 use App\Events\Bot\MessageReceived;
 use App\Exceptions\BadRequestException;
 use App\Exceptions\NotFoundException;
@@ -58,9 +59,11 @@ class ConversationServiceImpl implements ConversationService
         $m = __METHOD__;
         $this->logInfo($m, 'Listing conversations', ['filters' => $filters]);
 
-        $query = Conversation::with(['messages' => function ($q) {
-            $q->orderBy('sent_at', 'asc');
-        }]);
+        $query = Conversation::with([
+            'messages' => function ($q) {
+                $q->orderBy('sent_at', 'asc');
+            },
+        ]);
 
         if (! empty($filters['device_id'])) {
             $query->where('device_id', $filters['device_id']);
@@ -107,9 +110,11 @@ class ConversationServiceImpl implements ConversationService
      */
     public function show(string $conversationId): Conversation
     {
-        $conversation = Conversation::with(['messages' => function ($q) {
-            $q->orderBy('sent_at', 'asc');
-        }])->find($conversationId);
+        $conversation = Conversation::with([
+            'messages' => function ($q) {
+                $q->orderBy('sent_at', 'asc');
+            },
+        ])->find($conversationId);
 
         if (! $conversation) {
             throw new NotFoundException("Conversation [{$conversationId}] not found.");
@@ -159,6 +164,13 @@ class ConversationServiceImpl implements ConversationService
         $sent = $this->whatsappGateway->sendText(
             $conversation->phone,
             $trimmedText,
+            $conversation->device_id
+        );
+
+        // end typing status
+        $this->whatsappGateway->sendChatPresence(
+            $conversation->phone,
+            'stop',
             $conversation->device_id
         );
 
@@ -548,5 +560,110 @@ class ConversationServiceImpl implements ConversationService
             'sent_at' => $m->sent_at?->toIso8601String(),
             'status' => $m->status,
         ];
+    }
+
+    /**
+     * Handle typing presence indicator and auto-takeover for human operator.
+     */
+    public function handleTyping(string $conversationId, string $action): array
+    {
+        $m = __METHOD__;
+        $conversation = Conversation::find($conversationId);
+
+        if (! $conversation) {
+            throw new NotFoundException("Conversation [{$conversationId}] not found.");
+        }
+
+        $normalizedAction = strtolower(trim($action));
+        if (! in_array($normalizedAction, ['start', 'stop'], true)) {
+            throw new BadRequestException("Invalid typing action [{$action}]. Supported: 'start', 'stop'.");
+        }
+
+        if ($normalizedAction === 'start') {
+            // Takeover to human and escalate status
+            $conversation->update([
+                'handler' => 'human',
+                'status' => 'escalated',
+            ]);
+
+            // Kirim presence "sedang mengetik..." ke WhatsApp pelanggan
+            $this->whatsappGateway->sendChatPresence(
+                $conversation->phone,
+                'start',
+                $conversation->device_id
+            );
+
+            // Broadcast status terupdate ke WebSocket agar frontend segera sync
+            broadcast(new ConversationUpdated($conversation));
+
+            $this->logInfo($m, 'Operator started typing, takeover to human enabled', [
+                'conversation_id' => $conversation->id,
+                'phone' => $conversation->phone,
+            ]);
+        } else {
+            // action === 'stop'
+            $this->whatsappGateway->sendChatPresence(
+                $conversation->phone,
+                'stop',
+                $conversation->device_id
+            );
+
+            $this->logInfo($m, 'Operator stopped typing', [
+                'conversation_id' => $conversation->id,
+                'phone' => $conversation->phone,
+            ]);
+        }
+
+        return [
+            'conversation_id' => $conversation->id,
+            'action' => $normalizedAction,
+            'handler' => $conversation->handler,
+            'status' => $conversation->status,
+        ];
+    }
+
+    /**
+     * Update conversation handler mode ('ai' or 'human') manually.
+     */
+    public function updateHandler(string $conversationId, string $handler): array
+    {
+        $m = __METHOD__;
+        $conversation = Conversation::find($conversationId);
+
+        if (! $conversation) {
+            throw new NotFoundException("Conversation [{$conversationId}] not found.");
+        }
+
+        $normalizedHandler = strtolower(trim($handler));
+        if (! in_array($normalizedHandler, ['ai', 'human'], true)) {
+            throw new BadRequestException("Invalid handler mode [{$handler}]. Supported: 'ai', 'human'.");
+        }
+
+        $newStatus = $normalizedHandler === 'ai' ? 'all' : 'escalated';
+
+        $conversation->update([
+            'handler' => $normalizedHandler,
+            'status' => $newStatus,
+        ]);
+
+        // Jika dikembalikan ke AI, pastikan presence typing dimatikan
+        if ($normalizedHandler === 'ai') {
+            $this->whatsappGateway->sendChatPresence(
+                $conversation->phone,
+                'stop',
+                $conversation->device_id
+            );
+        }
+
+        // Broadcast status terbaru ke WebSocket
+        broadcast(new ConversationUpdated($conversation));
+
+        $this->logInfo($m, 'Conversation handler updated manually', [
+            'conversation_id' => $conversation->id,
+            'handler' => $normalizedHandler,
+            'status' => $newStatus,
+        ]);
+
+        return $this->formatConversation($conversation);
     }
 }
