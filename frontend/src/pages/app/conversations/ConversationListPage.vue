@@ -3,11 +3,59 @@ import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useConversationStore } from '@/stores/app/conversation.store'
 import { getInitials, formatRelativeTime, formatTime, formatPhone } from '@/utils/helper'
 import { notify, echo } from '@/plugins'
+import * as s$conversation from '@/services/app/conversation.service'
 
 const p$conv = useConversationStore()
 const replyInput = ref('')
 const messageContainer = ref(null)
 const sending = ref(false)
+
+let typingTimeout = null
+let isTypingActive = false
+
+const onAdminTyping = async () => {
+  const activeConv = p$conv.g$activeConversation
+  if (!activeConv) return
+
+  // Saat karakter pertama diketik: panggil sendTyping start dan set local state
+  if (!isTypingActive) {
+    isTypingActive = true
+    try {
+      await s$conversation.sendTyping(activeConv.id, 'start')
+      activeConv.handler = 'human'
+      activeConv.status = 'escalated'
+    } catch (e) {
+      console.warn('Failed to send typing start presence', e)
+    }
+  }
+
+  // Reset timer debounce 3.5 detik idle
+  if (typingTimeout) {
+    clearTimeout(typingTimeout)
+  }
+  typingTimeout = setTimeout(() => {
+    onAdminStopTyping()
+  }, 3500)
+}
+
+const onAdminStopTyping = async () => {
+  if (typingTimeout) {
+    clearTimeout(typingTimeout)
+    typingTimeout = null
+  }
+
+  if (isTypingActive) {
+    isTypingActive = false
+    const activeConv = p$conv.g$activeConversation
+    if (activeConv) {
+      try {
+        await s$conversation.sendTyping(activeConv.id, 'stop')
+      } catch (e) {
+        console.warn('Failed to send typing stop presence', e)
+      }
+    }
+  }
+}
 
 const scrollToBottom = async () => {
   await nextTick()
@@ -34,6 +82,12 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  if (typingTimeout) {
+    clearTimeout(typingTimeout)
+  }
+  if (isTypingActive && p$conv.g$activeId) {
+    s$conversation.sendTyping(p$conv.g$activeId, 'stop').catch(() => {})
+  }
   echo.leaveChannel('conversations')
 })
 
@@ -53,6 +107,10 @@ const handleTabChange = (status) => {
 }
 
 const handleSelect = async (id) => {
+  if (isTypingActive) {
+    await onAdminStopTyping()
+  }
+  replyInput.value = ''
   try {
     await p$conv.a$select(id)
     scrollToBottom()
@@ -63,6 +121,14 @@ const handleSelect = async (id) => {
 
 const handleSend = async () => {
   if (!replyInput.value.trim() || !p$conv.g$activeConversation || sending.value) return
+
+  // Bersihkan debounce timer & typing presence
+  if (typingTimeout) {
+    clearTimeout(typingTimeout)
+    typingTimeout = null
+  }
+  isTypingActive = false
+
   const text = replyInput.value.trim()
   replyInput.value = ''
   sending.value = true
@@ -392,6 +458,8 @@ const handleSync = async () => {
             <input
               v-model="replyInput"
               @keydown.enter="handleSend"
+              @input="onAdminTyping"
+              @blur="onAdminStopTyping"
               type="text"
               placeholder="Type a message..."
               class="input input-sm flex-1 focus:outline-none text-xs rounded-xl bg-base-200 border-0 focus:ring-1 focus:ring-base-content/20 text-base-content placeholder:text-base-content/40 px-3.5"

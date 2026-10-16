@@ -39,3 +39,20 @@ export const send = async (id, text, senderType = 'human') =>
  */
 export const sync = async (deviceId = null) =>
   await api.post(`${url}/sync`, {}, { params: deviceId ? { device_id: deviceId } : {} })
+
+/**
+ * Service function to notify typing presence and trigger operator auto-takeover.
+ * @param {string} id
+ * @param {'start'|'stop'} [action='start']
+ */
+export const sendTyping = async (id, action = 'start') =>
+  await api.post(`${url}/${id}/typing`, { action })
+
+/**
+ * Service function to manually update conversation handler mode ('ai' | 'human').
+ * @param {string} id
+ * @param {'ai'|'human'} handler
+ */
+export const updateHandler = async (id, handler) =>
+  await api.patch(`${url}/${id}/handler`, { handler })
+
