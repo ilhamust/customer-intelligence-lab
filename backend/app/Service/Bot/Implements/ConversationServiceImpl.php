@@ -28,6 +28,17 @@ class ConversationServiceImpl implements ConversationService
     protected function resolveDeviceId(?string $deviceId = null): ?string
     {
         if ($deviceId) {
+            $cleanPhone = preg_replace('/[^0-9]/', '', explode('@', $deviceId)[0]);
+
+            $channel = WhatsappChannel::where('device_id', $deviceId)
+                ->orWhere('jid', $deviceId)
+                ->orWhere('phone_number', $cleanPhone)
+                ->first();
+
+            if ($channel) {
+                return $channel->device_id;
+            }
+
             return $deviceId;
         }
 
@@ -375,20 +386,34 @@ class ConversationServiceImpl implements ConversationService
             }
         }
 
-        // Find or create conversation
-        $conversation = Conversation::firstOrCreate(
-            [
+        // Find or create conversation (match by device_id & chat_jid, with fallback by chat_jid)
+        $conversation = Conversation::where('chat_jid', $chatJid)
+            ->where(function ($q) use ($id) {
+                if ($id) {
+                    $q->where('device_id', $id)
+                      ->orWhere('device_id', explode('@', $id)[0]);
+                }
+            })
+            ->first();
+
+        if (!$conversation) {
+            $conversation = Conversation::where('chat_jid', $chatJid)->first();
+            if ($conversation && $id && $conversation->device_id !== $id) {
+                $conversation->update(['device_id' => $id]);
+            }
+        }
+
+        if (!$conversation) {
+            $conversation = Conversation::create([
                 'device_id' => $id,
                 'chat_jid' => $chatJid,
-            ],
-            [
                 'name' => $pushName ?: $phone,
                 'phone' => $phone,
                 'status' => 'all',
                 'handler' => 'ai',
                 'unread_count' => 0,
-            ]
-        );
+            ]);
+        }
 
         if ($pushName && empty($conversation->name)) {
             $conversation->name = $pushName;
