@@ -115,9 +115,13 @@ export const useConversationStore = defineStore('conversation', () => {
     const trimmed = text.trim()
     const target = conversations.value.find((c) => c.id === convId)
 
-    // Optimistic message bubble
+    // Buat client_id unik yang stabil untuk Vue key agar bubble tidak hilang-muncul
+    const clientKey = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6)
+
+    // Optimistic message bubble dengan status 'pending'
     const tempMsg = {
-      id: 'temp-' + Date.now(),
+      id: clientKey,
+      client_id: clientKey,
       conversation_id: convId,
       sender: 'human',
       sender_type: 'human',
@@ -125,7 +129,7 @@ export const useConversationStore = defineStore('conversation', () => {
       text: trimmed,
       time: new Date().toISOString(),
       sent_at: new Date().toISOString(),
-      status: 'delivered',
+      status: 'pending',
     }
 
     if (target) {
@@ -143,24 +147,25 @@ export const useConversationStore = defineStore('conversation', () => {
       const res = await s$conversation.send(convId, trimmed, 'human')
       const saved = res?.data
       if (saved && target) {
-        const idx = target.messages.findIndex((m) => m.id === tempMsg.id)
+        const idx = target.messages.findIndex(
+          (m) => m.client_id === clientKey || m.id === clientKey || m.id === saved.id
+        )
         if (idx !== -1) {
+          const current = target.messages[idx]
           target.messages[idx] = {
-            id: saved.id,
-            conversation_id: convId,
-            sender: saved.sender_type ?? 'human',
-            sender_type: saved.sender_type ?? 'human',
-            is_from_me: true,
-            text: saved.text,
-            time: saved.sent_at ?? new Date().toISOString(),
-            sent_at: saved.sent_at ?? new Date().toISOString(),
+            ...current,
+            ...saved,
+            client_id: clientKey,
             status: saved.status ?? 'delivered',
           }
         }
       }
       return saved
     } catch (err) {
-      tempMsg.status = 'failed'
+      const idx = target?.messages?.findIndex((m) => m.client_id === clientKey || m.id === clientKey)
+      if (idx !== undefined && idx !== -1) {
+        target.messages[idx].status = 'failed'
+      }
       throw err
     }
   }
@@ -226,18 +231,26 @@ export const useConversationStore = defineStore('conversation', () => {
         (m) =>
           m.id === msg.id ||
           (msg.whatsapp_message_id && m.whatsapp_message_id === msg.whatsapp_message_id) ||
-          (String(m.id).startsWith('temp-') && m.text === msg.text && m.is_from_me === msg.is_from_me)
+          ((String(m.id).startsWith('temp-') || String(m.client_id).startsWith('temp-')) &&
+            m.text === msg.text &&
+            m.is_from_me === msg.is_from_me)
       )
 
       if (existingIdx !== -1) {
-        // Update pesan yang sudah ada dengan ID resmi dan status dari server
+        // Update pesan yang sudah ada dengan ID resmi dan status dari server (pertahankan client_id stabil)
+        const current = targetConv.messages[existingIdx]
         targetConv.messages[existingIdx] = {
-          ...targetConv.messages[existingIdx],
+          ...current,
           ...msg,
+          client_id: current.client_id || msg.id,
+          status: msg.status || 'delivered',
         }
       } else {
         // Bubble baru masuk, push ke riwayat pesan
-        targetConv.messages.push(msg)
+        targetConv.messages.push({
+          ...msg,
+          client_id: msg.id,
+        })
         isNewBubble = true
       }
     }

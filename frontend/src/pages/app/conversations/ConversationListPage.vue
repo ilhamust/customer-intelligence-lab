@@ -315,7 +315,7 @@ const handleSync = async () => {
           <!-- Message Bubbles (Tanpa Header Internal Berjejal) -->
           <div
             v-for="msg in (p$conv.g$activeConversation.messages || [])"
-            :key="msg.id"
+            :key="msg.client_id || msg.id"
             class="flex"
             :class="[(msg.sender === 'customer' || msg.sender_type === 'customer') ? 'justify-start' : 'justify-end']"
           >
@@ -335,7 +335,8 @@ const handleSync = async () => {
             <!-- Outbound  -->
             <div
               v-else
-              class="max-w-md bg-primary text-primary-content rounded-2xl rounded-tr-xs p-3 px-3.5 shadow-sm space-y-1"
+              class="max-w-md bg-primary text-primary-content rounded-2xl rounded-tr-xs p-3 px-3.5 shadow-sm space-y-1 transition-opacity duration-150"
+              :class="{ 'opacity-85': msg.status === 'pending' || msg.status === 'sending' }"
             >
               <p class="text-xs leading-relaxed text-primary-content select-text whitespace-pre-wrap">
                 {{ msg.text }}
@@ -343,8 +344,54 @@ const handleSync = async () => {
 
               <div class="flex items-center justify-end gap-1.5 text-[10px] text-primary-content/80 font-medium tabular-nums pt-0.5">
                 <span>{{ formatTime(msg.time ?? msg.sent_at) }}</span>
-                <!-- Double Checkmark Icon -->
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-primary-content" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+
+                <!-- Status Indicator: Pending (Clock) vs Delivered (Centang Dua) vs Failed -->
+                <svg
+                  v-if="msg.status === 'pending' || msg.status === 'sending'"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-3 h-3 text-primary-content/80 animate-pulse shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  title="Sending..."
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+
+                <svg
+                  v-else-if="msg.status === 'failed'"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-3.5 h-3.5 text-error shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  title="Failed to deliver"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+
+                <!-- Double Checkmark (Centang Dua Resmi Terkirim) -->
+                <svg
+                  v-else
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="w-3.5 h-3.5 text-primary-content shrink-0"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  title="Delivered"
+                >
                   <path d="m3 12 5 5L20 5" />
                   <path d="m11 12 3 3L22 7" />
                 </svg>
