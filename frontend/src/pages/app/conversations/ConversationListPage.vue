@@ -73,12 +73,17 @@ onMounted(async () => {
   }
 
   // Subscribe ke channel global conversations untuk real-time sync list sidebar & chat room
-  echo.channel('conversations').listen('.MessageReceived', (e) => {
-    const isNew = p$conv.a$handleIncomingBroadcast(e)
-    if (isNew) {
-      scrollToBottom()
-    }
-  })
+  echo
+    .channel('conversations')
+    .listen('.MessageReceived', (e) => {
+      const isNew = p$conv.a$handleIncomingBroadcast(e)
+      if (isNew) {
+        scrollToBottom()
+      }
+    })
+    .listen('.ConversationUpdated', (e) => {
+      p$conv.a$handleConversationUpdatedBroadcast(e)
+    })
 })
 
 onUnmounted(() => {
@@ -148,6 +153,34 @@ const handleSync = async () => {
     notify.success(res?.message ?? 'Conversations synchronized successfully')
   } catch (e) {
     notify.error(e?.message ?? e ?? 'Failed to synchronize with WhatsApp')
+  }
+}
+
+const updatingHandler = ref(false)
+
+const handleToggleHandler = async (targetMode) => {
+  const activeConv = p$conv.g$activeConversation
+  if (!activeConv || updatingHandler.value) return
+
+  // Jika memindahkan ke AI saat sedang mengetik, matikan typing presence
+  if (targetMode === 'ai' && isTypingActive) {
+    await onAdminStopTyping()
+  }
+
+  updatingHandler.value = true
+  try {
+    await s$conversation.updateHandler(activeConv.id, targetMode)
+    activeConv.handler = targetMode
+    activeConv.status = targetMode === 'ai' ? 'all' : 'escalated'
+    notify.success(
+      targetMode === 'ai'
+        ? 'Percakapan berhasil dikembalikan ke mode AI'
+        : 'Percakapan berhasil diambil alih ke mode Human'
+    )
+  } catch (e) {
+    notify.error(e?.message ?? e ?? 'Gagal mengubah mode percakapan')
+  } finally {
+    updatingHandler.value = false
   }
 }
 </script>
@@ -338,9 +371,62 @@ const handleSync = async () => {
             </div>
           </div>
 
-          <!-- Header Right Actions: Indikator Online Halus -->
-          <div class="flex items-center gap-2">
-            <div class="flex items-center gap-1.5 text-[11px] text-base-content/50 font-medium">
+          <!-- Header Right Actions: Mode Switcher & Status -->
+          <div class="flex items-center gap-2.5">
+            <!-- Mode Switcher Pill -->
+            <div class="flex items-center gap-1.5 bg-base-200/90 py-1 pl-2.5 pr-1.5 rounded-xl border border-base-300 shadow-2xs">
+              <!-- Saat Mode AI Aktif -->
+              <template v-if="p$conv.g$activeConversation.handler !== 'human'">
+                <div class="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span>AI Active</span>
+                </div>
+                <button
+                  type="button"
+                  @click="handleToggleHandler('human')"
+                  :disabled="updatingHandler"
+                  class="btn btn-ghost btn-xs rounded-lg text-[10px] h-6 min-h-6 px-2 font-medium text-base-content/70 hover:text-base-content hover:bg-base-100 shadow-2xs transition-all flex items-center gap-1"
+                  title="Ambil alih percakapan ini ke mode manual (Human)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-base-content/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  <span>Ambil Alih</span>
+                </button>
+              </template>
+
+              <!-- Saat Mode Human Aktif -->
+              <template v-else>
+                <div class="flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                  <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                  <span>Human Mode</span>
+                </div>
+                <button
+                  type="button"
+                  @click="handleToggleHandler('ai')"
+                  :disabled="updatingHandler"
+                  class="btn btn-ghost btn-xs rounded-lg text-[10px] h-6 min-h-6 px-2 font-medium text-base-content/70 hover:text-base-content hover:bg-base-100 shadow-2xs transition-all flex items-center gap-1"
+                  title="Kembalikan percakapan ini ke auto-reply AI"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-base-content/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 8V4H8" />
+                    <rect width="16" height="12" x="4" y="8" rx="2" />
+                    <path d="M2 14h2" />
+                    <path d="M20 14h2" />
+                    <path d="M15 13v2" />
+                    <path d="M9 13v2" />
+                  </svg>
+                  <span>Kembalikan ke AI</span>
+                </button>
+              </template>
+            </div>
+
+            <!-- Online Indicator Halus -->
+            <div class="hidden sm:flex items-center gap-1.5 text-[11px] text-base-content/50 font-medium pl-1 border-l border-base-300">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               <span>Online</span>
             </div>

@@ -220,6 +220,9 @@ export const useConversationStore = defineStore('conversation', () => {
       targetConv.lastMessageTime = msg.sent_at || msg.time
       targetConv.last_message_time = msg.sent_at || msg.time
 
+      if (convSummary?.handler) targetConv.handler = convSummary.handler
+      if (convSummary?.status) targetConv.status = convSummary.status
+
       // Jika obrolan ini SEDANG DIBUKA di layar chat utama, unread count selalu 0 (karena user sedang membaca)
       if (activeId.value === convId) {
         targetConv.unread_count = 0
@@ -281,6 +284,26 @@ export const useConversationStore = defineStore('conversation', () => {
     return isNewBubble
   }
 
+  const a$handleConversationUpdatedBroadcast = (data) => {
+    if (!data) return
+    const convId = data.id || data.conversation?.id
+    if (!convId) return
+
+    const target = conversations.value.find((c) => c.id === convId)
+    if (target) {
+      const nextHandler = data.handler || data.conversation?.handler
+      const nextStatus = data.status || data.conversation?.status
+
+      if (nextHandler) target.handler = nextHandler
+      if (nextStatus) target.status = nextStatus
+
+      if (data.conversation?.unread_count !== undefined) {
+        target.unread_count = data.conversation.unread_count
+        target.unreadCount = data.conversation.unread_count
+      }
+    }
+  }
+
   return {
     // state
     conversations,
@@ -307,6 +330,7 @@ export const useConversationStore = defineStore('conversation', () => {
     a$search,
     a$filterByStatus,
     a$handleIncomingBroadcast,
+    a$handleConversationUpdatedBroadcast,
   }
 })
 

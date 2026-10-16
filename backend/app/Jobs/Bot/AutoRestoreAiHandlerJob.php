@@ -52,7 +52,7 @@ class AutoRestoreAiHandlerJob implements ShouldQueue
 
         // Ambil data percakapan terbaru
         $conversation = Conversation::find($this->conversationId);
-        if (!$conversation) {
+        if (! $conversation) {
             Log::info('[AutoRestoreAiHandlerJob] Conversation not found, aborting', $logContext);
 
             return;

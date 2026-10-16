@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Service\Bot\Contracts\ConversationService;
+use App\Service\Bot\Implements\ConversationServiceImpl;
+use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
+use App\Service\Whatsapp\Implements\GowaGatewayServiceImpl;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -12,13 +16,13 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(
-            \App\Service\Whatsapp\Contracts\WhatsappGatewayService::class,
-            \App\Service\Whatsapp\Implements\GowaGatewayServiceImpl::class
+            WhatsappGatewayService::class,
+            GowaGatewayServiceImpl::class
         );
 
         $this->app->bind(
-            \App\Service\Bot\Contracts\ConversationService::class,
-            \App\Service\Bot\Implements\ConversationServiceImpl::class
+            ConversationService::class,
+            ConversationServiceImpl::class
         );
     }
 

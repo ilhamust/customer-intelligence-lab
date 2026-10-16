@@ -8,8 +8,11 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class DataResource extends JsonResource
 {
     protected string $title = 'Success';
+
     protected string $status = 'STATUS_OK';
+
     protected int $code = 200;
+
     protected array $meta = [];
 
     /**
@@ -21,6 +24,7 @@ class DataResource extends JsonResource
         $this->status = $status;
         $this->code = $code;
         $this->meta = $meta;
+
         return $this;
     }
 

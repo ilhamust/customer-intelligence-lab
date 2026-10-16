@@ -33,6 +33,7 @@ class WhatsappDeviceController extends Controller
 
         try {
             $devices = $this->whatsappService->listDevices();
+
             return $this->respondWithData($devices, 'Successfully retrieved WhatsApp devices');
         } catch (BadRequestException $e) {
             return $this->handleBadRequest($e, $ctx);
@@ -53,6 +54,7 @@ class WhatsappDeviceController extends Controller
 
         try {
             $status = $this->whatsappService->getStatus($deviceId);
+
             return $this->respondWithData($status, 'Successfully retrieved device status');
         } catch (NotFoundException $e) {
             return $this->handleNotFound($e, $ctx);
@@ -78,6 +80,7 @@ class WhatsappDeviceController extends Controller
                 $validated['device_id'],
                 $validated['name']
             );
+
             return $this->respondWithData($channel, 'Device successfully registered in GOWA', 201);
         } catch (BadRequestException $e) {
             return $this->handleBadRequest($e, $ctx);
@@ -98,6 +101,7 @@ class WhatsappDeviceController extends Controller
 
         try {
             $qrData = $this->whatsappService->getLoginQr($deviceId);
+
             return $this->respondWithData($qrData, 'Login QR code generated successfully');
         } catch (NotFoundException $e) {
             return $this->handleNotFound($e, $ctx);
@@ -121,6 +125,7 @@ class WhatsappDeviceController extends Controller
 
         try {
             $codeData = $this->whatsappService->loginWithCode($deviceId, $validated['phone']);
+
             return $this->respondWithData($codeData, 'Pairing code generated successfully');
         } catch (BadRequestException $e) {
             return $this->handleBadRequest($e, $ctx);
@@ -141,6 +146,7 @@ class WhatsappDeviceController extends Controller
 
         try {
             $success = $this->whatsappService->logout($deviceId);
+
             return $this->respondWithData(
                 ['device_id' => $deviceId, 'logged_out' => $success],
                 'Device successfully logged out'
@@ -164,6 +170,7 @@ class WhatsappDeviceController extends Controller
 
         try {
             $success = $this->whatsappService->reconnect($deviceId);
+
             return $this->respondWithData(
                 ['device_id' => $deviceId, 'reconnected' => $success],
                 'Device reconnect requested successfully'
@@ -186,6 +193,7 @@ class WhatsappDeviceController extends Controller
 
         try {
             $success = $this->whatsappService->deleteDevice($deviceId);
+
             return $this->respondWithData(
                 ['device_id' => $deviceId, 'deleted' => $success],
                 'Device successfully deleted'

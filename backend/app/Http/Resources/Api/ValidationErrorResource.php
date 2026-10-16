@@ -11,6 +11,7 @@ class ValidationErrorResource extends JsonResource
     public static $wrap = null;
 
     protected array $errors = [];
+
     protected string $firstError = 'Validation failed.';
 
     public function __construct(Validator $validator)

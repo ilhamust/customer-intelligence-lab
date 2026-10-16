@@ -37,8 +37,7 @@ class GenerateAiReplyJob implements ShouldQueue
     public function __construct(
         public string $conversationId,
         public string $incomingMessageId
-    ) {
-    }
+    ) {}
 
     /**
      * Execute the job.
@@ -52,7 +51,7 @@ class GenerateAiReplyJob implements ShouldQueue
 
         // Ambil data percakapan
         $conversation = Conversation::find($this->conversationId);
-        if (!$conversation) {
+        if (! $conversation) {
             Log::warning('[GenerateAiReplyJob] Conversation not found, aborting', $logContext);
 
             return;
@@ -67,7 +66,7 @@ class GenerateAiReplyJob implements ShouldQueue
 
         // Ambil data pesan pelanggan yang memicu job ini
         $incomingMsg = Message::find($this->incomingMessageId);
-        if (!$incomingMsg || $incomingMsg->is_from_me) {
+        if (! $incomingMsg || $incomingMsg->is_from_me) {
             Log::info('[GenerateAiReplyJob] Incoming message is invalid or sent by operator, skipping', $logContext);
 
             return;
@@ -172,7 +171,7 @@ class GenerateAiReplyJob implements ShouldQueue
             // Pastikan presence typing dimatikan jika terjadi error
             $whatsappGateway->sendChatPresence($conversation->phone, 'stop', $conversation->device_id);
 
-            Log::error('[GenerateAiReplyJob] Failed to generate or send AI reply: ' . $e->getMessage(), [
+            Log::error('[GenerateAiReplyJob] Failed to generate or send AI reply: '.$e->getMessage(), [
                 ...$logContext,
                 'exception' => $e,
             ]);

@@ -27,6 +27,7 @@ trait ControllerHelpers
     protected function handleNotFound(NotFoundException $e, string $ctx): ErrorResource
     {
         Log::warning(sprintf('[%s] %s', $ctx, $e->getMessage()));
+
         return new ErrorResource($e->title(), $e->getMessage(), 404, 'STATUS_NOT_FOUND');
     }
 
@@ -36,6 +37,7 @@ trait ControllerHelpers
     protected function handleBadRequest(BadRequestException $e, string $ctx): ErrorResource
     {
         Log::warning(sprintf('[%s] %s', $ctx, $e->getMessage()));
+
         return new ErrorResource($e->title(), $e->getMessage(), 400, 'STATUS_BAD_REQUEST');
     }
 
@@ -45,6 +47,7 @@ trait ControllerHelpers
     protected function handleInternal(InternalServerException $e, string $ctx): InternalErrorResource
     {
         Log::error(sprintf('[%s] %s', $ctx, $e->getMessage()));
+
         return new InternalErrorResource($e->getMessage(), $e->title());
     }
 
@@ -58,6 +61,7 @@ trait ControllerHelpers
         ]);
 
         $detail = config('app.debug') ? $e->getMessage() : $fallbackMessage;
+
         return new InternalErrorResource($detail);
     }
 }

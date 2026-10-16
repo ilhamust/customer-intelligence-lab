@@ -15,6 +15,7 @@ class MessageReceived implements ShouldBroadcastNow
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public Message $message;
+
     public ?Conversation $conversation;
 
     /**
@@ -38,7 +39,7 @@ class MessageReceived implements ShouldBroadcastNow
     /**
      * Get the channels the event should broadcast on.
      *
-     * @return array<int, \Illuminate\Broadcasting\Channel>
+     * @return array<int, Channel>
      */
     public function broadcastOn(): array
     {
