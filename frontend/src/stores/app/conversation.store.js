@@ -191,14 +191,28 @@ export const useConversationStore = defineStore('conversation', () => {
     filterStatus.value = status
   }
 
+  const processedMessageIds = new Set()
+
   const a$handleIncomingBroadcast = (data) => {
     if (!data?.message) return false
 
     const { message: msg, conversation: convSummary } = data
     const convId = msg.conversation_id
+
+    // Deduplikasi pemrosesan event siaran agar tidak dobel hitung
+    const eventKey = `${msg.id || msg.whatsapp_message_id || ''}-${msg.sent_at || ''}-${msg.text || ''}`
+    const isAlreadyProcessed = processedMessageIds.has(eventKey)
+    if (!isAlreadyProcessed) {
+      processedMessageIds.add(eventKey)
+      if (processedMessageIds.size > 200) {
+        const first = processedMessageIds.values().next().value
+        processedMessageIds.delete(first)
+      }
+    }
+
     let isNewBubble = false
 
-    // Update daftar kontak obrolan di sidebar
+    // 1. Update daftar kontak obrolan di sidebar
     let targetConv = conversations.value.find((c) => c.id === convId)
     if (targetConv) {
       targetConv.lastMessage = msg.text
@@ -206,10 +220,19 @@ export const useConversationStore = defineStore('conversation', () => {
       targetConv.lastMessageTime = msg.sent_at || msg.time
       targetConv.last_message_time = msg.sent_at || msg.time
 
-      // Jika pesan dari customer dan bukan tab yang sedang dibuka, naikkan unread counter
-      if (!msg.is_from_me && activeId.value !== convId) {
-        targetConv.unread_count = (targetConv.unread_count || 0) + 1
-        targetConv.unreadCount = targetConv.unread_count
+      // Jika obrolan ini SEDANG DIBUKA di layar chat utama, unread count selalu 0 (karena user sedang membaca)
+      if (activeId.value === convId) {
+        targetConv.unread_count = 0
+        targetConv.unreadCount = 0
+      } else if (!msg.is_from_me && !isAlreadyProcessed) {
+        // Jika dari customer dan obrolan TIDAK sedang dibuka: gunakan nilai akurat dari backend
+        if (typeof convSummary?.unread_count === 'number') {
+          targetConv.unread_count = convSummary.unread_count
+          targetConv.unreadCount = convSummary.unread_count
+        } else {
+          targetConv.unread_count = (targetConv.unread_count || 0) + 1
+          targetConv.unreadCount = targetConv.unread_count
+        }
       }
     } else if (convSummary) {
       // Obrolan baru yang belum ada di sidebar
@@ -220,7 +243,7 @@ export const useConversationStore = defineStore('conversation', () => {
       conversations.value.unshift(targetConv)
     }
 
-    // Jika obrolan ini sedang dibuka di layar chat utama
+    // 2. Jika obrolan ini sedang dibuka di layar chat utama
     if (activeId.value === convId && targetConv) {
       if (!Array.isArray(targetConv.messages)) {
         targetConv.messages = []

@@ -24,7 +24,7 @@ onMounted(async () => {
     notify.error(e?.message ?? e ?? 'Failed to load conversations')
   }
 
-  // Subscribe ke channel global conversations untuk real-time sync list sidebar
+  // Subscribe ke channel global conversations untuk real-time sync list sidebar & chat room
   echo.channel('conversations').listen('.MessageReceived', (e) => {
     const isNew = p$conv.a$handleIncomingBroadcast(e)
     if (isNew) {
@@ -33,30 +33,8 @@ onMounted(async () => {
   })
 })
 
-// Subscribe ke channel conversation aktif untuk update obrolan spesifik
-watch(
-  () => p$conv.g$activeId,
-  (newId, oldId) => {
-    if (oldId) {
-      echo.leaveChannel(`conversation.${oldId}`)
-    }
-    if (newId) {
-      echo.channel(`conversation.${newId}`).listen('.MessageReceived', (e) => {
-        const isNew = p$conv.a$handleIncomingBroadcast(e)
-        if (isNew) {
-          scrollToBottom()
-        }
-      })
-    }
-  },
-  { immediate: true }
-)
-
 onUnmounted(() => {
   echo.leaveChannel('conversations')
-  if (p$conv.g$activeId) {
-    echo.leaveChannel(`conversation.${p$conv.g$activeId}`)
-  }
 })
 
 watch(
@@ -146,7 +124,7 @@ const handleSync = async () => {
           </button>
         </div>
 
-        <!-- Search Bar ala Gambar 2 -->
+        <!-- Search Bar-->
         <div class="relative">
           <input
             type="text"

@@ -179,10 +179,11 @@ class ConversationServiceImpl implements ConversationService
             'sent_at' => now(),
         ]);
 
-        // Update Conversation
+        // Update Conversation (reset unread_count to 0 when replying)
         $conversation->update([
             'last_message' => $trimmedText,
             'last_message_time' => now(),
+            'unread_count' => 0,
         ]);
 
         $this->logInfo($m, 'Message sent and stored', [
