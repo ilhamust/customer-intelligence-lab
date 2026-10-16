@@ -388,7 +388,7 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
             }
 
             // Map and format results
-            return $channels->map(function ($channel) use ($gowaDevices) {
+            return $channels->map(function (WhatsappChannel $channel) use ($gowaDevices) {
                 $gowaData = $gowaDevices[$channel->device_id] ?? null;
                 $status = $channel->status;
                 $jid = $channel->jid;

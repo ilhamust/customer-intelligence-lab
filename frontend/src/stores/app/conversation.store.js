@@ -186,6 +186,65 @@ export const useConversationStore = defineStore('conversation', () => {
     filterStatus.value = status
   }
 
+  const a$handleIncomingBroadcast = (data) => {
+    if (!data?.message) return false
+
+    const { message: msg, conversation: convSummary } = data
+    const convId = msg.conversation_id
+    let isNewBubble = false
+
+    // Update daftar kontak obrolan di sidebar
+    let targetConv = conversations.value.find((c) => c.id === convId)
+    if (targetConv) {
+      targetConv.lastMessage = msg.text
+      targetConv.last_message = msg.text
+      targetConv.lastMessageTime = msg.sent_at || msg.time
+      targetConv.last_message_time = msg.sent_at || msg.time
+
+      // Jika pesan dari customer dan bukan tab yang sedang dibuka, naikkan unread counter
+      if (!msg.is_from_me && activeId.value !== convId) {
+        targetConv.unread_count = (targetConv.unread_count || 0) + 1
+        targetConv.unreadCount = targetConv.unread_count
+      }
+    } else if (convSummary) {
+      // Obrolan baru yang belum ada di sidebar
+      targetConv = {
+        ...convSummary,
+        messages: [],
+      }
+      conversations.value.unshift(targetConv)
+    }
+
+    // Jika obrolan ini sedang dibuka di layar chat utama
+    if (activeId.value === convId && targetConv) {
+      if (!Array.isArray(targetConv.messages)) {
+        targetConv.messages = []
+      }
+
+      // Cari apakah pesan sudah ada (misal dari optimistic bubble 'temp-' atau duplicate ID)
+      const existingIdx = targetConv.messages.findIndex(
+        (m) =>
+          m.id === msg.id ||
+          (msg.whatsapp_message_id && m.whatsapp_message_id === msg.whatsapp_message_id) ||
+          (String(m.id).startsWith('temp-') && m.text === msg.text && m.is_from_me === msg.is_from_me)
+      )
+
+      if (existingIdx !== -1) {
+        // Update pesan yang sudah ada dengan ID resmi dan status dari server
+        targetConv.messages[existingIdx] = {
+          ...targetConv.messages[existingIdx],
+          ...msg,
+        }
+      } else {
+        // Bubble baru masuk, push ke riwayat pesan
+        targetConv.messages.push(msg)
+        isNewBubble = true
+      }
+    }
+
+    return isNewBubble
+  }
+
   return {
     // state
     conversations,
@@ -211,6 +270,7 @@ export const useConversationStore = defineStore('conversation', () => {
     a$sync,
     a$search,
     a$filterByStatus,
+    a$handleIncomingBroadcast,
   }
 })
 

@@ -1,8 +1,8 @@
 <script setup>
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useConversationStore } from '@/stores/app/conversation.store'
 import { getInitials, formatRelativeTime, formatTime, formatPhone } from '@/utils/helper'
-import { notify } from '@/plugins'
+import { notify, echo } from '@/plugins'
 
 const p$conv = useConversationStore()
 const replyInput = ref('')
@@ -22,6 +22,40 @@ onMounted(async () => {
     scrollToBottom()
   } catch (e) {
     notify.error(e?.message ?? e ?? 'Failed to load conversations')
+  }
+
+  // Subscribe ke channel global conversations untuk real-time sync list sidebar
+  echo.channel('conversations').listen('.MessageReceived', (e) => {
+    const isNew = p$conv.a$handleIncomingBroadcast(e)
+    if (isNew) {
+      scrollToBottom()
+    }
+  })
+})
+
+// Subscribe ke channel conversation aktif untuk update obrolan spesifik
+watch(
+  () => p$conv.g$activeId,
+  (newId, oldId) => {
+    if (oldId) {
+      echo.leaveChannel(`conversation.${oldId}`)
+    }
+    if (newId) {
+      echo.channel(`conversation.${newId}`).listen('.MessageReceived', (e) => {
+        const isNew = p$conv.a$handleIncomingBroadcast(e)
+        if (isNew) {
+          scrollToBottom()
+        }
+      })
+    }
+  },
+  { immediate: true }
+)
+
+onUnmounted(() => {
+  echo.leaveChannel('conversations')
+  if (p$conv.g$activeId) {
+    echo.leaveChannel(`conversation.${p$conv.g$activeId}`)
   }
 })
 
