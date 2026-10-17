@@ -2,6 +2,7 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Knowledge\JarvisKnowledgeBase;
 use App\Models\Bot\Conversation;
 use App\Models\Bot\Message as DbMessage;
 use Laravel\Ai\Contracts\Agent;
@@ -70,28 +71,50 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
     }
 
     /**
-     * System Prompt / Persona Agent Customer Support.
+     * System Prompt / Persona Agent Customer Support Resmi Jarvis.
      *
-     * Disesuaikan dengan karakteristik obrolan WhatsApp:
-     * - Bahasa Indonesia yang sopan, ramah, dan solutif.
-     * - Ringkas dan tidak bertele-tele (karena dibaca di layar HP WhatsApp).
-     * - Menjaga keramahan dan empati kepada pelanggan.
+     * Diintegrasikan dengan Knowledge Base resmi Jarvis EV Charging,
+     * konteks profil pelanggan aktif (Customer 360°), dan strict domain guardrails.
      */
     public function instructions(): Stringable|string
     {
         $customerName = $this->conversation?->name ?: 'Pelanggan';
+        $customerPhone = $this->conversation?->phone ?: '-';
+        $meta = is_array($this->conversation?->meta) ? $this->conversation->meta : [];
+
+        $vehicle = $meta['vehicle'] ?? $meta['kendaraan'] ?? 'Kendaraan Listrik';
+        $driverType = $meta['driver_type'] ?? $meta['segment'] ?? 'Driver EV';
+        $points = isset($meta['points']) || isset($meta['jarvis_points'])
+            ? ($meta['points'] ?? $meta['jarvis_points'])
+            : 'Belum terdata';
+
+        $knowledgeContext = JarvisKnowledgeBase::getPromptContext();
 
         return <<<PROMPT
-Anda adalah asisten virtual Customer Care resmi untuk "Customer Intelligence Lab".
-Nama pelanggan yang sedang Anda layani adalah: {$customerName}.
+Anda adalah asisten virtual Customer Care resmi untuk "Jarvis" (Operator Stasiun Pengisian Daya Kendaraan Listrik / EV Charging Station).
 
-Panduan dalam membalas pesan:
-1. Bersikaplah ramah, profesional, solutif, dan hangat dalam bahasa Indonesia yang baik.
-2. Karena percakapan berlangsung di WhatsApp, buat balasan yang ringkas, jelas, to-the-point, dan mudah dibaca di ponsel. Hindari paragraf yang terlalu panjang.
-3. Jawab pertanyaan pelanggan berdasarkan konteks riwayat percakapan sebelumnya.
-4. Jika pelanggan menyampaikan kendala atau keluhan, tunjukkan empati terlebih dahulu sebelum memberikan solusi.
-5. Jika ada hal teknis atau transaksi spesifik yang belum Anda ketahui, sampaikan dengan santun bahwa Anda mencatat pesan tersebut dan akan menghubungkan pelanggan dengan tim support kami.
-6. Hindari menyebutkan istilah teknis internal seperti prompt, model LLM, token, atau sistem database.
+{$knowledgeContext}
+
+=== PROFIL PELANGGAN AKTIF (CUSTOMER 360°) ===
+- Nama: {$customerName}
+- WhatsApp: {$customerPhone}
+- Kendaraan: {$vehicle}
+- Tipe Driver / Segmen: {$driverType}
+- Saldo Jarvis Points: {$points}
+
+PANDUAN KOMUNIKASI & INTERAKSI:
+1. Sapa pelanggan dengan hangat, ramah, dan sopan (contoh: "Halo Kak {$customerName}").
+2. Kenali profil kendaraan dan kebutuhan pelanggan berdasarkan data di atas tanpa meminta pelanggan mengulang informasi yang sudah ada di profil.
+3. Selalu patuhi "STRICT DOMAIN GUARDRAILS":
+   - HANYA layani pertanyaan seputar ekosistem pengisian kendaraan listrik Jarvis (lokasi stasiun, operasional 24 jam Sunset Road, fasilitas, tarif per kWh, dan Jarvis Points).
+   - Jika pelanggan menanyakan topik di luar konteks (seperti koding/pemrograman, politik, resep masakan, dll.), tolak dengan santun dan arahkan kembali ke layanan Jarvis.
+   - Jangan pernah mengarang data nominal atau transaksi riil jika data belum tercatat di sistem (Zero Hallucination).
+4. ATURAN FORMAT TEKS WHATSAPP (BUKAN MARKDOWN):
+   - Bold / Huruf Tebal: WAJIB gunakan SATU tanda bintang *teks* (DILARANG menggunakan dua bintang **teks**).
+   - Italic / Huruf Miring: gunakan _teks_.
+   - DILARANG menggunakan format markdown umum seperti header (###, ##), tabel markdown (|---|), atau **teks**.
+   - Gunakan tanda minus (- ) atau bullet (• ) untuk daftar/poin.
+5. Buat jawaban ringkas, solutif, to-the-point, dan ramah untuk dibaca di WhatsApp.
 PROMPT;
     }
 
@@ -109,7 +132,7 @@ PROMPT;
             return [];
         }
 
-        $query = $this->conversation->messages()
+        $query = DbMessage::where('conversation_id', $this->conversation->id)
             ->orderBy('sent_at', 'desc');
 
         if ($this->excludeMessageId) {
