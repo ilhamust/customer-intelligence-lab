@@ -98,8 +98,9 @@ const handleOpenCode = (device) => {
       <div class="space-y-0.5">
         <div class="flex items-center gap-2.5">
           <h1 class="text-lg font-black text-base-content tracking-tight">Devices</h1>
-          <BaseBadge v-if="p$device.g$devices.length > 0" variant="neutral" pill size="sm">
-            {{ p$device.g$connectedCount }}/{{ p$device.g$devices.length }} Online
+          <BaseBadge v-if="p$device.g$devices.length > 0" variant="neutral" pill size="sm" class="gap-1.5">
+            <span v-if="p$device.g$connectedCount > 0" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span>{{ p$device.g$connectedCount }}/{{ p$device.g$devices.length }} Online</span>
           </BaseBadge>
         </div>
         <p class="text-xs text-base-content/60">WhatsApp accounts connected to this server</p>
@@ -199,32 +200,50 @@ const handleOpenCode = (device) => {
             <div class="flex items-start justify-between gap-3">
               <div class="flex items-center gap-3 min-w-0">
                 <!-- Squircle Icon Container -->
-                <div class="w-11 h-11 rounded-2xl bg-base-200 border border-base-300 flex items-center justify-center text-base-content/70 shrink-0 shadow-xs">
+                <div class="relative w-11 h-11 rounded-2xl bg-base-200 border border-base-300 flex items-center justify-center text-base-content/70 shrink-0 shadow-xs">
                   <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
                     <path d="M12 18h.01" />
                   </svg>
+                  <!-- Green dot on avatar for connected device -->
+                  <span
+                    v-if="device.status === 'connected'"
+                    class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-base-100"
+                    title="WhatsApp Connected"
+                  ></span>
                 </div>
 
                 <!-- Text Header -->
                 <div class="min-w-0">
-                  <h3 class="font-bold text-sm text-base-content truncate tracking-tight" :title="device.phone_number || device.jid || device.name">
-                    {{ device.phone_number ? formatPhone(device.phone_number) : (device.name || 'WhatsApp Gateway') }}
+                  <h3 class="font-bold text-sm text-base-content truncate tracking-tight" :title="device.name || (device.phone_number ? formatPhone(device.phone_number) : 'WhatsApp Gateway')">
+                    {{ device.name || (device.phone_number ? formatPhone(device.phone_number) : 'WhatsApp Gateway') }}
                   </h3>
-                  <p class="text-xs text-base-content/60 truncate mt-0.5" :title="device.jid || device.name">
-                    {{ device.jid || device.name || 'Slot ID: ' + device.device_id }}
+                  <p class="text-xs text-base-content/60 truncate mt-0.5" :title="device.jid || (device.phone_number ? formatPhone(device.phone_number) : 'Slot ID: ' + device.device_id)">
+                    {{ device.jid || (device.phone_number ? formatPhone(device.phone_number) : 'Slot ID: ' + device.device_id) }}
                   </p>
                 </div>
               </div>
 
-              <!-- Status Badge -->
+              <!-- Status Badge with Dot Indicator -->
               <BaseBadge
-                :variant="device.status === 'connected' ? 'success' : device.status === 'pairing' ? 'warning' : 'neutral'"
+                variant="neutral"
                 pill
                 size="sm"
-                class="shrink-0"
+                class="shrink-0 gap-1.5"
               >
-                {{ device.status === 'connected' ? 'Logged in' : device.status === 'pairing' ? 'Pairing' : 'Disconnected' }}
+                <!-- Dot Green (Connected) -->
+                <span v-if="device.status === 'connected'" class="relative flex h-2 w-2">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <!-- Dot Yellow (Pairing) -->
+                <span v-else-if="device.status === 'pairing'" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                <!-- Dot Red (Disconnected) -->
+                <span v-else class="w-2 h-2 rounded-full bg-rose-400 animate-pulse"></span>
+
+                <span :class="device.status === 'connected' ? 'text-base-content font-bold' : 'text-base-content/70'">
+                  {{ device.status === 'connected' ? 'Logged in' : device.status === 'pairing' ? 'Pairing' : 'Disconnected' }}
+                </span>
               </BaseBadge>
             </div>
 
