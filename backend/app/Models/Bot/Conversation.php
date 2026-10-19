@@ -15,6 +15,7 @@ class Conversation extends Model
     protected $table = 'conversations';
 
     protected $fillable = [
+        'customer_id',
         'device_id',
         'chat_jid',
         'name',
@@ -24,6 +25,7 @@ class Conversation extends Model
         'unread_count',
         'status',
         'handler',
+        'registration_step',
         'meta',
     ];
 
@@ -55,5 +57,13 @@ class Conversation extends Model
     public function channel(): BelongsTo
     {
         return $this->belongsTo(WhatsappChannel::class, 'device_id', 'device_id');
+    }
+
+    /**
+     * Customer associated with this conversation.
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class, 'customer_id', 'id');
     }
 }
