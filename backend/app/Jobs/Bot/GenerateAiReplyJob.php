@@ -19,7 +19,7 @@ class GenerateAiReplyJob implements ShouldQueue
     /**
      * Waktu maksimum eksekusi job dalam detik (LLM + API Gateway).
      */
-    public int $timeout = 60;
+    public int $timeout = 120;
 
     /**
      * Jumlah percobaan maksimal jika terjadi kegagalan sementara.

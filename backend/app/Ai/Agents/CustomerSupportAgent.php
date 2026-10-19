@@ -56,8 +56,8 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
             $chain['groq'] = env('AI_GROQ_MODEL', null);
         }
 
-        // Ollama
-        if (config('ai.providers.ollama.key')) {
+        // Ollama (hanya jika remote Ollama host dikonfigurasi)
+        if (config('ai.providers.ollama.key') && env('OLLAMA_URL') && env('OLLAMA_URL') !== 'http://localhost:11434') {
             $chain['ollama'] = env('AI_OLLAMA_MODEL', null);
         }
 
