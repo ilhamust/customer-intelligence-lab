@@ -74,16 +74,16 @@ const menus = [
     icon: 'dashboard',
   },
   {
-    name: 'Conversations',
-    to: '/app/conversations',
-    disabled: false,
-    icon: 'chat',
-  },
-  {
     name: 'Devices',
     to: '/app/devices',
     disabled: false,
     icon: 'smartphone',
+  },
+  {
+    name: 'Conversations',
+    to: '/app/conversations',
+    disabled: false,
+    icon: 'chat',
   },
   {
     name: 'Customers',
