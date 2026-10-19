@@ -3,7 +3,11 @@
 namespace App\Providers;
 
 use App\Service\Bot\Contracts\ConversationService;
+use App\Service\Bot\Contracts\CustomerRegistrationService;
+use App\Service\Bot\Contracts\WifiTokenService;
 use App\Service\Bot\Implements\ConversationServiceImpl;
+use App\Service\Bot\Implements\CustomerRegistrationServiceImpl;
+use App\Service\Bot\Implements\WifiTokenServiceImpl;
 use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use App\Service\Whatsapp\Implements\GowaGatewayServiceImpl;
 use Illuminate\Support\ServiceProvider;
@@ -23,6 +27,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             ConversationService::class,
             ConversationServiceImpl::class
+        );
+
+        $this->app->bind(
+            WifiTokenService::class,
+            WifiTokenServiceImpl::class
+        );
+
+        $this->app->bind(
+            CustomerRegistrationService::class,
+            CustomerRegistrationServiceImpl::class
         );
     }
 
