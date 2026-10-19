@@ -29,7 +29,8 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
     public function __construct(
         public ?Conversation $conversation = null,
         public ?string $excludeMessageId = null
-    ) {}
+    ) {
+    }
 
     /**
      * Konfigurasi urutan Provider AI untuk Automatic Failover.
@@ -45,29 +46,28 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
     public function provider(): array
     {
         $chain = [];
-        $default = env('AI_DEFAULT_PROVIDER', 'groq');
 
-        // Jika default adalah groq, posisikan groq di urutan pertama (ultra low latency < 1s)
-        if ($default === 'groq' && config('ai.providers.groq.key')) {
-            $chain['groq'] = env('AI_GROQ_MODEL', null);
-        }
-
-        // Google Gemini
+        // Google Gemini (Provider Utama)
         if (config('ai.providers.gemini.key')) {
             $chain['gemini'] = env('AI_GEMINI_MODEL', null);
         }
 
-        // Groq sebagai cadangan jika bukan default
-        if (! isset($chain['groq']) && config('ai.providers.groq.key')) {
+        // Groq (Cadangan 1)
+        if (config('ai.providers.groq.key')) {
             $chain['groq'] = env('AI_GROQ_MODEL', null);
         }
 
-        // OpenAI sebagai cadangan
+        // Ollama
+        if (config('ai.providers.ollama.key')) {
+            $chain['ollama'] = env('AI_OLLAMA_MODEL', null);
+        }
+
+        // OpenAI (Cadangan 2)
         if (config('ai.providers.openai.key')) {
             $chain['openai'] = env('AI_OPENAI_MODEL', 'gpt-4o-mini');
         }
 
-        return ! empty($chain) ? $chain : [config('ai.default', 'groq')];
+        return !empty($chain) ? $chain : [config('ai.default', 'gemini')];
     }
 
     /**
@@ -110,9 +110,11 @@ PANDUAN KOMUNIKASI & INTERAKSI:
    - Jika pelanggan menanyakan topik di luar konteks (seperti koding/pemrograman, politik, resep masakan, dll.), tolak dengan santun dan arahkan kembali ke layanan Jarvis.
    - Jangan pernah mengarang data nominal atau transaksi riil jika data belum tercatat di sistem (Zero Hallucination).
 4. ATURAN FORMAT TEKS WHATSAPP (BUKAN MARKDOWN):
-   - Bold / Huruf Tebal: WAJIB gunakan SATU tanda bintang *teks* (DILARANG menggunakan dua bintang **teks**).
-   - Italic / Huruf Miring: gunakan _teks_.
-   - DILARANG menggunakan format markdown umum seperti header (###, ##), tabel markdown (|---|), atau **teks**.
+   - WAJIB gunakan format WhatsApp:
+     * Tebal / Bold: gunakan SATU tanda bintang *teks* (DILARANG KERAS menggunakan dua bintang **teks**).
+     * Miring / Italic: gunakan satu garis bawah _teks_.
+     * Coret / Strikethrough: gunakan satu tilde ~teks~.
+   - DILARANG KERAS menggunakan format markdown seperti header (###, ##), tabel markdown (|---|), atau dua bintang (**).
    - Gunakan tanda minus (- ) atau bullet (• ) untuk daftar/poin.
 5. Buat jawaban ringkas, solutif, to-the-point, dan ramah untuk dibaca di WhatsApp.
 PROMPT;
@@ -128,7 +130,7 @@ PROMPT;
      */
     public function messages(): iterable
     {
-        if (! $this->conversation) {
+        if (!$this->conversation) {
             return [];
         }
 
@@ -167,5 +169,26 @@ PROMPT;
     public function tools(): iterable
     {
         return [];
+    }
+
+    /**
+     * Format dan bersihkan teks balasan AI agar sesuai dengan standar WhatsApp.
+     * Mengonversi format Markdown umum (misal **teks** menjadi *teks*).
+     */
+    public static function formatForWhatsApp(string $text): string
+    {
+        // Ubah markdown header (### Judul atau ## Judul) menjadi bold WhatsApp (*Judul*)
+        $text = preg_replace('/^#{1,6}\s+(.+)$/m', '*$1*', $text);
+
+        // Ubah triple asterisks ***teks*** (bold + italic) menjadi *_teks_*
+        $text = preg_replace('/\*{3}(.+?)\*{3}/s', '*_$1_*', $text);
+
+        // Ubah double asterisks **teks** (bold) menjadi *teks*
+        $text = preg_replace('/\*{2}(.+?)\*{2}/s', '*$1*', $text);
+
+        // Ubah strikethrough ~~teks~~ menjadi ~teks~
+        $text = preg_replace('/~~(.+?)~~/s', '~$1~', $text);
+
+        return trim($text);
     }
 }

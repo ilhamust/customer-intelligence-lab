@@ -88,7 +88,7 @@ class GenerateAiReplyJob implements ShouldQueue
             // Inisialisasi CustomerSupportAgent dengan histori percakapan
             $agent = new CustomerSupportAgent($conversation, $incomingMsg->id);
             $response = $agent->prompt($promptText);
-            $replyText = trim((string) $response->text);
+            $replyText = CustomerSupportAgent::formatForWhatsApp((string) $response->text);
 
             if ($replyText === '') {
                 Log::warning('[GenerateAiReplyJob] AI agent returned an empty response', $logContext);
