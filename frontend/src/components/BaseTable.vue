@@ -15,17 +15,24 @@ defineProps({
   },
   emptyTitle: {
     type: String,
-    default: 'Tidak ada data',
+    default: 'No data found',
   },
   emptyDescription: {
     type: String,
-    default: 'Belum ada data untuk ditampilkan saat ini.',
+    default: 'No items available to display at this time.',
+  },
+  borderless: {
+    type: Boolean,
+    default: false,
   },
 })
 </script>
 
 <template>
-  <div class="w-full overflow-x-auto rounded-2xl border border-base-300 bg-base-100 shadow-xs">
+  <div
+    class="w-full overflow-x-auto"
+    :class="borderless ? 'bg-transparent' : 'rounded-2xl border border-base-300 bg-base-100 shadow-xs'"
+  >
     <table class="table w-full text-left border-collapse">
       <!-- Table Header -->
       <thead class="bg-base-200/70 border-b border-base-300 text-[11px] font-extrabold uppercase tracking-wider text-base-content/60">

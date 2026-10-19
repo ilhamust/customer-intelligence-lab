@@ -165,69 +165,72 @@ const handlePageChange = (page) => {
       </BaseStat>
     </div>
 
-    <!-- ─── Filter Pills Bar ───────────────────────────────────── -->
-    <div class="flex flex-wrap items-center justify-between gap-3 bg-base-100 rounded-2xl border border-base-300 p-3 shadow-xs shrink-0 text-xs">
-      <div class="flex items-center gap-1.5 overflow-x-auto">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-base-content/40 px-2">Segment:</span>
-        <button
-          type="button"
-          @click="handleFilterDriver('all')"
-          class="px-3 py-1 rounded-full font-semibold transition-colors"
-          :class="p$customer.g$filters.driver_type === 'all' ? 'bg-primary text-primary-content shadow-xs' : 'text-base-content/60 hover:bg-base-200'"
-        >
-          All
-        </button>
-        <button
-          type="button"
-          @click="handleFilterDriver('ride-hailing')"
-          class="px-3 py-1 rounded-full font-semibold transition-colors"
-          :class="p$customer.g$filters.driver_type === 'ride-hailing' ? 'bg-primary text-primary-content shadow-xs' : 'text-base-content/60 hover:bg-base-200'"
-        >
-          Ride-Hailing
-        </button>
-        <button
-          type="button"
-          @click="handleFilterDriver('private')"
-          class="px-3 py-1 rounded-full font-semibold transition-colors"
-          :class="p$customer.g$filters.driver_type === 'private' ? 'bg-primary text-primary-content shadow-xs' : 'text-base-content/60 hover:bg-base-200'"
-        >
-          Private
-        </button>
-        <button
-          type="button"
-          @click="handleFilterDriver('fleet')"
-          class="px-3 py-1 rounded-full font-semibold transition-colors"
-          :class="p$customer.g$filters.driver_type === 'fleet' ? 'bg-primary text-primary-content shadow-xs' : 'text-base-content/60 hover:bg-base-200'"
-        >
-          Fleet
-        </button>
+    <!-- ─── Unified Customer Data Card (Segment Filters + Table + Pagination) ─── -->
+    <section class="bg-base-100 rounded-2xl border border-base-300 shadow-xs flex flex-col overflow-hidden">
+      <!-- 1. Top Integrated Filter Toolbar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-b border-base-300 text-xs bg-base-100">
+        <!-- Segment Filter Pills -->
+        <div class="flex items-center gap-1.5 overflow-x-auto">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-base-content/40 pr-1">Segment:</span>
+          <button
+            type="button"
+            @click="handleFilterDriver('all')"
+            class="px-3 py-1 rounded-full font-semibold transition-colors"
+            :class="p$customer.g$filters.driver_type === 'all' ? 'bg-primary text-primary-content shadow-xs' : 'text-base-content/60 hover:bg-base-200'"
+          >
+            All
+          </button>
+          <button
+            type="button"
+            @click="handleFilterDriver('ride-hailing')"
+            class="px-3 py-1 rounded-full font-semibold transition-colors"
+            :class="p$customer.g$filters.driver_type === 'ride-hailing' ? 'bg-primary text-primary-content shadow-xs' : 'text-base-content/60 hover:bg-base-200'"
+          >
+            Ride-Hailing
+          </button>
+          <button
+            type="button"
+            @click="handleFilterDriver('private')"
+            class="px-3 py-1 rounded-full font-semibold transition-colors"
+            :class="p$customer.g$filters.driver_type === 'private' ? 'bg-primary text-primary-content shadow-xs' : 'text-base-content/60 hover:bg-base-200'"
+          >
+            Private
+          </button>
+          <button
+            type="button"
+            @click="handleFilterDriver('fleet')"
+            class="px-3 py-1 rounded-full font-semibold transition-colors"
+            :class="p$customer.g$filters.driver_type === 'fleet' ? 'bg-primary text-primary-content shadow-xs' : 'text-base-content/60 hover:bg-base-200'"
+          >
+            Fleet
+          </button>
+        </div>
+
+        <!-- Status Filter Pills -->
+        <div class="flex items-center gap-1.5">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-base-content/40 pr-1">Status:</span>
+          <button
+            type="button"
+            @click="handleFilterStatus('all')"
+            class="px-3 py-1 rounded-full font-semibold transition-colors"
+            :class="p$customer.g$filters.status === 'all' ? 'bg-neutral text-neutral-content' : 'text-base-content/60 hover:bg-base-200'"
+          >
+            All
+          </button>
+          <button
+            type="button"
+            @click="handleFilterStatus('active')"
+            class="px-3 py-1 rounded-full font-semibold transition-colors"
+            :class="p$customer.g$filters.status === 'active' ? 'bg-neutral text-neutral-content' : 'text-base-content/60 hover:bg-base-200'"
+          >
+            Active
+          </button>
+        </div>
       </div>
 
-      <!-- Status Filters -->
-      <div class="flex items-center gap-1.5">
-        <span class="text-[11px] font-bold uppercase tracking-wider text-base-content/40 px-2">Status:</span>
-        <button
-          type="button"
-          @click="handleFilterStatus('all')"
-          class="px-3 py-1 rounded-full font-semibold transition-colors"
-          :class="p$customer.g$filters.status === 'all' ? 'bg-neutral text-neutral-content' : 'text-base-content/60 hover:bg-base-200'"
-        >
-          All
-        </button>
-        <button
-          type="button"
-          @click="handleFilterStatus('active')"
-          class="px-3 py-1 rounded-full font-semibold transition-colors"
-          :class="p$customer.g$filters.status === 'active' ? 'bg-neutral text-neutral-content' : 'text-base-content/60 hover:bg-base-200'"
-        >
-          Active
-        </button>
-      </div>
-    </div>
-
-    <!-- ─── Main Customer Table ────────────────────────────────── -->
-    <main class="flex-1 flex flex-col gap-3">
+      <!-- 2. Integrated Table Body -->
       <BaseTable
+        borderless
         :columns="columns"
         :rows="p$customer.g$customers"
         :loading="p$customer.g$loading"
@@ -316,14 +319,17 @@ const handlePageChange = (page) => {
         </template>
       </BaseTable>
 
-      <!-- Pagination -->
-      <div v-if="p$customer.g$meta.total > 0" class="bg-base-100 rounded-2xl border border-base-300 shadow-xs">
+      <!-- 3. Integrated Pagination Footer -->
+      <footer
+        v-if="p$customer.g$meta.total > 0"
+        class="border-t border-base-300 px-4 py-2 bg-base-100 shrink-0"
+      >
         <BasePagination
           :meta="p$customer.g$meta"
           @change="handlePageChange"
         />
-      </div>
-    </main>
+      </footer>
+    </section>
 
     <!-- Customer 360° Detail Modal -->
     <CustomerDetailModal
