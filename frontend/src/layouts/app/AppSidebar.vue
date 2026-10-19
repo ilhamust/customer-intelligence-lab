@@ -88,7 +88,7 @@ const menus = [
   {
     name: 'Customers',
     to: '/app/customers',
-    disabled: true,
+    disabled: false,
     icon: 'users',
   },
   {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Bot\ConversationController;
+use App\Http\Controllers\Bot\CustomerController;
 use App\Http\Controllers\Webhooks\WhatsappWebhookController;
 use App\Http\Controllers\Whatsapp\WhatsappDeviceController;
 use App\Http\Middleware\VerifyHmacSignature;
@@ -21,6 +22,14 @@ Route::prefix('v1')->group(function () {
         Route::post('/login-code', [WhatsappDeviceController::class, 'loginCode'])->name('whatsapp.login.code');
         Route::post('/logout', [WhatsappDeviceController::class, 'logout'])->name('whatsapp.logout');
         Route::post('/reconnect', [WhatsappDeviceController::class, 'reconnect'])->name('whatsapp.reconnect');
+    });
+
+    // Customers Management for Frontend Back Office
+    Route::prefix('customers')->group(function () {
+        Route::get('/', [CustomerController::class, 'index'])->name('customers.index');
+        Route::get('/{id}', [CustomerController::class, 'show'])->name('customers.show');
+        Route::get('/{id}/points', [CustomerController::class, 'points'])->name('customers.points');
+        Route::get('/{id}/ledger', [CustomerController::class, 'ledger'])->name('customers.ledger');
     });
 
     // Conversations & Chat Management

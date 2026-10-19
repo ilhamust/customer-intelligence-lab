@@ -16,6 +16,11 @@ export default [
         name: 'Devices',
         component: () => import('@/pages/app/devices/DeviceListPage.vue'),
       },
+      {
+        path: 'customers',
+        name: 'Customers',
+        component: () => import('@/pages/app/customers/CustomerListPage.vue'),
+      },
     ],
   },
 ]
