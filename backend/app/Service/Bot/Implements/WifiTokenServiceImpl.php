@@ -31,9 +31,9 @@ class WifiTokenServiceImpl implements WifiTokenService
         $ssid = (string) config('services.wifi.ssid', 'Jarvis-Guest-SunsetRoad');
 
         $slugName = $customerName ? Str::slug(Str::words($customerName, 2, '')) : '';
-        $usernamePrefix = $slugName !== '' ? 'jarvis-' . $slugName : 'jarvis-guest';
-        $username = $usernamePrefix . '-' . mt_rand(100, 999);
-        $password = 'WFI' . mt_rand(100, 999);
+        $usernamePrefix = $slugName !== '' ? 'jarvis-'.$slugName : 'jarvis-guest';
+        $username = $usernamePrefix.'-'.mt_rand(100, 999);
+        $password = 'WFI'.mt_rand(100, 999);
 
         $now = now();
         $expiresAt = $now->copy()->addMinutes($durationMinutes);
@@ -44,7 +44,7 @@ class WifiTokenServiceImpl implements WifiTokenService
             'password' => $password,
             'duration_minutes' => $durationMinutes,
             'expires_at' => $expiresAt,
-            'expires_at_formatted' => $expiresAt->copy()->setTimezone('Asia/Jakarta')->format('H:i') . ' WIB',
+            'expires_at_formatted' => $expiresAt->copy()->setTimezone('Asia/Jakarta')->format('H:i').' WIB',
         ];
 
         $this->logInfo($m, 'Generated guest Wi-Fi token for customer', [

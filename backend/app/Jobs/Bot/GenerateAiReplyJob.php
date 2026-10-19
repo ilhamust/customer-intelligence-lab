@@ -49,8 +49,8 @@ class GenerateAiReplyJob implements ShouldQueue
             'message_id' => $this->incomingMessageId,
         ];
 
-        // Ambil data percakapan
-        $conversation = Conversation::find($this->conversationId);
+        // Ambil data percakapan beserta data pelanggan
+        $conversation = Conversation::with(['customer'])->find($this->conversationId);
         if (! $conversation) {
             Log::warning('[GenerateAiReplyJob] Conversation not found, aborting', $logContext);
 

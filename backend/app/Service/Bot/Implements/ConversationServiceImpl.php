@@ -9,9 +9,12 @@ use App\Exceptions\NotFoundException;
 use App\Jobs\Bot\AutoRestoreAiHandlerJob;
 use App\Jobs\Bot\GenerateAiReplyJob;
 use App\Models\Bot\Conversation;
+use App\Models\Bot\Customer;
 use App\Models\Bot\Message;
 use App\Models\Bot\WhatsappChannel;
 use App\Service\Bot\Contracts\ConversationService;
+use App\Service\Bot\Contracts\CustomerRegistrationService;
+use App\Service\Bot\Contracts\WifiTokenService;
 use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use App\Traits\ServiceHelper;
 use Carbon\Carbon;
@@ -22,7 +25,9 @@ class ConversationServiceImpl implements ConversationService
     use ServiceHelper;
 
     public function __construct(
-        protected WhatsappGatewayService $whatsappGateway
+        protected WhatsappGatewayService $whatsappGateway,
+        protected CustomerRegistrationService $customerRegistrationService,
+        protected WifiTokenService $wifiTokenService
     ) {}
 
     /**
@@ -61,6 +66,7 @@ class ConversationServiceImpl implements ConversationService
         $this->logInfo($m, 'Listing conversations', ['filters' => $filters]);
 
         $query = Conversation::with([
+            'customer',
             'messages' => function ($q) {
                 $q->orderBy('sent_at', 'asc');
             },
@@ -111,7 +117,7 @@ class ConversationServiceImpl implements ConversationService
      */
     public function show(string $conversationId): Conversation
     {
-        $conversation = Conversation::find($conversationId);
+        $conversation = Conversation::with(['customer'])->find($conversationId);
 
         if (! $conversation) {
             throw new NotFoundException("Conversation [{$conversationId}] not found.");
@@ -519,12 +525,88 @@ class ConversationServiceImpl implements ConversationService
         // Broadcast incoming message to WebSocket clients
         broadcast(new MessageReceived($message, $conversation));
 
-        // Automatically trigger AI reply if conversation handler is 'ai' and message is from customer
-        // Beri jeda grace period 6 detik agar admin manusia memiliki waktu untuk membaca dan mulai mengetik jika ingin ambil alih
+        // Automatically handle registration flow for new customers or dispatch AI reply for registered customers
         if (! $isFromMe && $conversation->handler === 'ai') {
-            $this->logInfo($m, 'Dispatching GenerateAiReplyJob for incoming customer message with 6s human grace period', [
+            $phone = $conversation->phone ?: preg_replace('/[^0-9]/', '', explode('@', $conversation->chat_jid)[0]);
+
+            // Cek apakah customer sudah terdaftar di database
+            $customer = $conversation->customer_id
+                ? Customer::find($conversation->customer_id)
+                : Customer::where('phone', $phone)->first();
+
+            // Sinkronkan percakapan jika customer sudah ada di database tapi belum tertaut
+            if ($customer && (! $conversation->customer_id || $conversation->registration_step !== 'completed')) {
+                $conversation->update([
+                    'customer_id' => $customer->id,
+                    'registration_step' => 'completed',
+                    'name' => $customer->name,
+                ]);
+            }
+
+            // JIKA BELUM TERDAFTAR: Jalankan alur registrasi pelanggan baru
+            if (! $customer) {
+                $step = $conversation->registration_step ?? 'unregistered';
+
+                if ($step === 'unregistered') {
+                    // Chat pertama kali: Kirim form registrasi singkat
+                    $formText = $this->customerRegistrationService->getRegistrationFormText();
+                    $this->sendMessage($conversation->id, $formText, 'bot');
+
+                    $conversation->update(['registration_step' => 'awaiting_form']);
+                    broadcast(new ConversationUpdated($conversation));
+
+                    $this->logInfo($m, 'Sent registration form to new customer', [
+                        'conversation_id' => $conversation->id,
+                        'phone' => $phone,
+                    ]);
+
+                    return $message;
+                }
+
+                if ($step === 'awaiting_form') {
+                    // Driver sedang membalas form pendaftaran: Coba parse data
+                    $parsed = $this->customerRegistrationService->parseRegistrationText($text);
+
+                    if ($parsed !== null) {
+                        // Ekstraksi berhasil: Buat record Customer baru dan Customer ID permanen
+                        $newCustomer = $this->customerRegistrationService->registerCustomer($conversation, $parsed);
+
+                        // Generate token Wi-Fi gratis 30 menit (zona waktu WIB)
+                        $wifiToken = $this->wifiTokenService->generateToken($newCustomer->name, 30);
+
+                        // Kirim welcome message resmi beserta kredensial Wi-Fi 30 menit
+                        $welcomeText = $this->customerRegistrationService->buildWelcomeMessageText($newCustomer, $wifiToken);
+                        $this->sendMessage($conversation->id, $welcomeText, 'bot');
+
+                        broadcast(new ConversationUpdated($conversation));
+
+                        $this->logInfo($m, 'Customer registered successfully and welcome Wi-Fi sent', [
+                            'conversation_id' => $conversation->id,
+                            'customer_id' => $newCustomer->id,
+                            'customer_code' => $newCustomer->customer_code,
+                        ]);
+
+                        return $message;
+                    }
+
+                    // Jika balasan belum lengkap: Kirim pesan panduan pengisian
+                    $guideText = $this->customerRegistrationService->getIncompleteGuideText();
+                    $this->sendMessage($conversation->id, $guideText, 'bot');
+
+                    $this->logInfo($m, 'Customer registration reply incomplete, sent guide text', [
+                        'conversation_id' => $conversation->id,
+                        'phone' => $phone,
+                    ]);
+
+                    return $message;
+                }
+            }
+
+            // JIKA SUDAH TERDAFTAR: Jalankan alur percakapan normal AI dengan grace period 6 detik
+            $this->logInfo($m, 'Dispatching GenerateAiReplyJob for registered customer message with 6s human grace period', [
                 'conversation_id' => $conversation->id,
                 'message_id' => $message->id,
+                'customer_id' => $conversation->customer_id,
             ]);
 
             GenerateAiReplyJob::dispatch($conversation->id, $message->id)->delay(now()->addSeconds(6));
@@ -538,22 +620,32 @@ class ConversationServiceImpl implements ConversationService
      */
     protected function formatConversation(Conversation $c): array
     {
-        $customerName = $c->name ?: $c->phone;
+        $customer = $c->customer;
+        $customerName = $customer?->name ?: ($c->name ?: $c->phone);
+        $customerPhone = $customer?->phone ?: $c->phone;
 
         return [
             'id' => $c->id,
             'device_id' => $c->device_id,
             'chat_jid' => $c->chat_jid,
             'name' => $customerName,
-            'phone' => $c->phone,
+            'phone' => $customerPhone,
+            'customer_id' => $c->customer_id,
+            'registration_step' => $c->registration_step ?? 'unregistered',
             'customer' => [
-                'id' => $c->id,
+                'id' => $customer?->id ?? $c->id,
+                'customer_code' => $customer?->customer_code,
                 'name' => $customerName,
-                'phone' => $c->phone,
-                'meterNo' => $c->meta['meter_no'] ?? '-',
-                'segment' => $c->meta['segment'] ?? 'WhatsApp Contact',
-                'category' => $c->meta['category'] ?? 'General',
-                'status' => 'Active',
+                'phone' => $customerPhone,
+                'vehicle' => $customer?->vehicle ?? ($c->meta['vehicle'] ?? $c->meta['kendaraan'] ?? '-'),
+                'driver_type' => $customer?->driver_type ?? ($c->meta['driver_type'] ?? '-'),
+                'residential_area' => $customer?->residential_area ?? ($c->meta['residential_area'] ?? '-'),
+                'primary_route' => $customer?->primary_route ?? ($c->meta['primary_route'] ?? '-'),
+                'points_balance' => $customer?->points_balance ?? 0,
+                'meterNo' => $customer?->customer_code ?? ($c->meta['meter_no'] ?? '-'),
+                'segment' => $customer?->driver_type ? ucfirst(str_replace('_', ' ', $customer->driver_type)) : ($c->meta['segment'] ?? 'WhatsApp Contact'),
+                'category' => $customer ? 'Registered EV Driver' : ($c->meta['category'] ?? 'General'),
+                'status' => $customer?->status ?? 'Active',
             ],
             'unreadCount' => (int) $c->unread_count,
             'unread_count' => (int) $c->unread_count,

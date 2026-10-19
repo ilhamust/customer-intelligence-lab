@@ -87,6 +87,8 @@ class MessageReceived implements ShouldBroadcastNow
                 'unread_count' => (int) $this->conversation->unread_count,
                 'status' => $this->conversation->status,
                 'handler' => $this->conversation->handler,
+                'customer_id' => $this->conversation->customer_id,
+                'registration_step' => $this->conversation->registration_step ?? 'unregistered',
             ] : null,
         ];
     }

@@ -29,8 +29,7 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
     public function __construct(
         public ?Conversation $conversation = null,
         public ?string $excludeMessageId = null
-    ) {
-    }
+    ) {}
 
     /**
      * Konfigurasi urutan Provider AI untuk Automatic Failover.
@@ -67,7 +66,7 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
             $chain['openai'] = env('AI_OPENAI_MODEL', 'gpt-4o-mini');
         }
 
-        return !empty($chain) ? $chain : [config('ai.default', 'gemini')];
+        return ! empty($chain) ? $chain : [config('ai.default', 'gemini')];
     }
 
     /**
@@ -78,15 +77,21 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
      */
     public function instructions(): Stringable|string
     {
-        $customerName = $this->conversation?->name ?: 'Pelanggan';
-        $customerPhone = $this->conversation?->phone ?: '-';
+        $customer = $this->conversation?->customer;
+        $customerName = $customer?->name ?: ($this->conversation?->name ?: 'Pelanggan');
+        $customerCode = $customer?->customer_code ?: '-';
+        $customerPhone = $customer?->phone ?: ($this->conversation?->phone ?: '-');
         $meta = is_array($this->conversation?->meta) ? $this->conversation->meta : [];
 
-        $vehicle = $meta['vehicle'] ?? $meta['kendaraan'] ?? 'Kendaraan Listrik';
-        $driverType = $meta['driver_type'] ?? $meta['segment'] ?? 'Driver EV';
-        $points = isset($meta['points']) || isset($meta['jarvis_points'])
-            ? ($meta['points'] ?? $meta['jarvis_points'])
-            : 'Belum terdata';
+        $vehicle = $customer?->vehicle ?: ($meta['vehicle'] ?? $meta['kendaraan'] ?? 'Kendaraan Listrik');
+        $driverType = $customer?->driver_type ?: ($meta['driver_type'] ?? $meta['segment'] ?? 'Driver EV');
+        $residentialArea = $customer?->residential_area ?: '-';
+        $primaryRoute = $customer?->primary_route ?: '-';
+        $points = $customer?->points_balance !== null
+            ? $customer->points_balance
+            : (isset($meta['points']) || isset($meta['jarvis_points'])
+                ? ($meta['points'] ?? $meta['jarvis_points'])
+                : 'Belum terdata');
 
         $knowledgeContext = JarvisKnowledgeBase::getPromptContext();
 
@@ -96,15 +101,18 @@ Anda adalah asisten virtual Customer Care resmi untuk "Jarvis" (Operator Stasiun
 {$knowledgeContext}
 
 === PROFIL PELANGGAN AKTIF (CUSTOMER 360°) ===
+- ID Pelanggan: {$customerCode}
 - Nama: {$customerName}
 - WhatsApp: {$customerPhone}
 - Kendaraan: {$vehicle}
 - Tipe Driver / Segmen: {$driverType}
+- Area Domisili / Tinggal: {$residentialArea}
+- Rute Utama: {$primaryRoute}
 - Saldo Jarvis Points: {$points}
 
 PANDUAN KOMUNIKASI & INTERAKSI:
 1. Sapa pelanggan dengan hangat, ramah, dan sopan (contoh: "Halo Kak {$customerName}").
-2. Kenali profil kendaraan dan kebutuhan pelanggan berdasarkan data di atas tanpa meminta pelanggan mengulang informasi yang sudah ada di profil.
+2. Kenali profil kendaraan, rute, dan kebutuhan pelanggan berdasarkan data di atas tanpa meminta pelanggan mengulang informasi yang sudah ada di profil.
 3. Selalu patuhi "STRICT DOMAIN GUARDRAILS":
    - HANYA layani pertanyaan seputar ekosistem pengisian kendaraan listrik Jarvis (lokasi stasiun, operasional 24 jam Sunset Road, fasilitas, tarif per kWh, dan Jarvis Points).
    - Jika pelanggan menanyakan topik di luar konteks (seperti koding/pemrograman, politik, resep masakan, dll.), tolak dengan santun dan arahkan kembali ke layanan Jarvis.
@@ -130,7 +138,7 @@ PROMPT;
      */
     public function messages(): iterable
     {
-        if (!$this->conversation) {
+        if (! $this->conversation) {
             return [];
         }
 

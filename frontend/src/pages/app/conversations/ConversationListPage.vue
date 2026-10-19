@@ -309,9 +309,17 @@ const handleToggleHandler = async (targetMode) => {
           <!-- Middle: Name & Clean Last Message -->
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between mb-1">
-              <h3 class="font-semibold text-xs text-base-content truncate">
-                {{ chat.customer?.name ?? chat.name }}
-              </h3>
+              <div class="flex items-center gap-1.5 min-w-0">
+                <h3 class="font-semibold text-xs text-base-content truncate">
+                  {{ chat.customer?.name ?? chat.name }}
+                </h3>
+                <span
+                  v-if="chat.customer?.customer_code"
+                  class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold shrink-0"
+                >
+                  {{ chat.customer.customer_code }}
+                </span>
+              </div>
               <span class="text-[10px] text-base-content/40 font-medium tabular-nums shrink-0 ml-2">
                 {{ formatRelativeTime(chat.lastMessageTime ?? chat.last_message_time) }}
               </span>
@@ -370,12 +378,39 @@ const handleToggleHandler = async (targetMode) => {
 
             <!-- Details Kontak -->
             <div class="min-w-0">
-              <h2 class="font-semibold text-xs text-base-content truncate leading-tight">
-                {{ p$conv.g$activeConversation.customer?.name ?? p$conv.g$activeConversation.name }}
-              </h2>
-              <p class="text-[11px] text-base-content/45 font-medium tabular-nums leading-tight mt-0.5">
-                {{ formatPhone(p$conv.g$activeConversation.customer?.phone ?? p$conv.g$activeConversation.phone) }}
-              </p>
+              <div class="flex items-center gap-1.5">
+                <h2 class="font-semibold text-xs text-base-content truncate leading-tight">
+                  {{ p$conv.g$activeConversation.customer?.name ?? p$conv.g$activeConversation.name }}
+                </h2>
+                <span
+                  v-if="p$conv.g$activeConversation.customer?.customer_code"
+                  class="badge badge-xs badge-neutral text-[9px] font-mono font-bold px-1.5 py-0.5 rounded"
+                  title="ID Pelanggan Jarvis"
+                >
+                  {{ p$conv.g$activeConversation.customer.customer_code }}
+                </span>
+                <span
+                  v-if="p$conv.g$activeConversation.customer?.driver_type && p$conv.g$activeConversation.customer.driver_type !== '-'"
+                  class="text-[10px] font-medium text-base-content/50 capitalize"
+                >
+                  ({{ p$conv.g$activeConversation.customer.driver_type }})
+                </span>
+              </div>
+              <div class="flex items-center gap-2 text-[11px] text-base-content/45 font-medium tabular-nums leading-tight mt-0.5">
+                <span>{{ formatPhone(p$conv.g$activeConversation.customer?.phone ?? p$conv.g$activeConversation.phone) }}</span>
+                <span
+                  v-if="p$conv.g$activeConversation.customer?.vehicle && p$conv.g$activeConversation.customer.vehicle !== '-'"
+                  class="text-base-content/40"
+                >
+                  • {{ p$conv.g$activeConversation.customer.vehicle }}
+                </span>
+                <span
+                  v-if="p$conv.g$activeConversation.customer?.residential_area && p$conv.g$activeConversation.customer.residential_area !== '-'"
+                  class="text-base-content/40"
+                >
+                  • {{ p$conv.g$activeConversation.customer.residential_area }}
+                </span>
+              </div>
             </div>
           </div>
 
