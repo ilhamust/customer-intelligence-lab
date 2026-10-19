@@ -198,6 +198,40 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
             <path d="M12 18h.01" />
           </svg>
 
+          <!-- Users / Customers icon -->
+          <svg v-else-if="menu.icon === 'users'" xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+
+          <!-- Dashboard icon -->
+          <svg v-else-if="menu.icon === 'dashboard'" xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="7" height="9" x="3" y="3" rx="1" />
+            <rect width="7" height="5" x="14" y="3" rx="1" />
+            <rect width="7" height="9" x="14" y="12" rx="1" />
+            <rect width="7" height="5" x="3" y="16" rx="1" />
+          </svg>
+
+          <!-- Ticket icon -->
+          <svg v-else-if="menu.icon === 'ticket'" xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+            <path d="M13 5v2" /><path d="M13 17v2" /><path d="M13 11v2" />
+          </svg>
+
+          <!-- Bell icon -->
+          <svg v-else-if="menu.icon === 'bell'" xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
+
+          <!-- Book icon -->
+          <svg v-else xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+            <path d="M6 6h10" /><path d="M6 10h10" />
+          </svg>
+
           <!-- Menu Label -->
           <span v-if="isExpanded" class="truncate tracking-tight whitespace-nowrap">{{ menu.name }}</span>
         </router-link>
