@@ -14,6 +14,7 @@ use App\Models\Bot\Message;
 use App\Models\Bot\WhatsappChannel;
 use App\Service\Bot\Contracts\ConversationService;
 use App\Service\Bot\Contracts\CustomerRegistrationService;
+use App\Service\Bot\Contracts\TicketService;
 use App\Service\Bot\Contracts\WifiTokenService;
 use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use App\Traits\ServiceHelper;
@@ -216,7 +217,14 @@ class ConversationServiceImpl implements ConversationService
         }
 
         // Broadcast to WebSocket clients
-        broadcast(new MessageReceived($message, $conversation));
+        try {
+            broadcast(new MessageReceived($message, $conversation));
+        } catch (\Throwable $e) {
+            $this->logWarning($m, 'Failed broadcasting message to WebSocket: '.$e->getMessage(), [
+                'conversation_id' => $conversation->id,
+                'message_id' => $message->id,
+            ]);
+        }
 
         return $message;
     }
@@ -512,7 +520,13 @@ class ConversationServiceImpl implements ConversationService
                     ]);
 
                     // Broadcast perubahan handler ke WebSocket
-                    broadcast(new ConversationUpdated($conversation));
+                    try {
+                        broadcast(new ConversationUpdated($conversation));
+                    } catch (\Throwable $e) {
+                        $this->logWarning($m, 'Failed broadcasting auto-restore handler to WebSocket: '.$e->getMessage(), [
+                            'conversation_id' => $conversation->id,
+                        ]);
+                    }
                 }
             }
         }
@@ -530,20 +544,61 @@ class ConversationServiceImpl implements ConversationService
         ]);
 
         // Broadcast incoming message to WebSocket clients
-        broadcast(new MessageReceived($message, $conversation));
-
-        // Intersepsi Tiket Aktif: Jika percakapan memiliki tiket berstatus queued atau in_progress,
-        // pesan sudah disimpan dan disiarkan ke dashboard CS (di atas), lalu bypass GenerateAiReplyJob
-        // agar bot AI tetap diam (silent mode) selama pelanggan menunggu dalam antrean atau berbicara dengan CS.
-        $hasActiveTicket = $conversation->tickets()
-            ->whereIn('status', ['queued', 'in_progress'])
-            ->exists();
-
-        if ($hasActiveTicket) {
-            $this->logInfo($m, 'Conversation has an active ticket (queued/in_progress). Bypassing AI auto-reply to keep bot silent', [
+        try {
+            broadcast(new MessageReceived($message, $conversation));
+        } catch (\Throwable $e) {
+            $this->logWarning($m, 'Failed broadcasting incoming message to WebSocket: '.$e->getMessage(), [
                 'conversation_id' => $conversation->id,
                 'message_id' => $message->id,
             ]);
+        }
+
+        // Intersepsi Tiket Aktif: Jika percakapan memiliki tiket berstatus queued atau in_progress,
+        // pesan sudah disimpan dan disiarkan ke dashboard CS (di atas).
+        $activeTicket = $conversation->tickets()
+            ->whereIn('status', ['queued', 'in_progress'])
+            ->first();
+
+        if ($activeTicket) {
+            // Kasus 1: Tiket sedang dilayani CS (in_progress) -> Silent mode total agar CS dan pelanggan berkomunikasi langsung tanpa intervensi bot
+            if ($activeTicket->status === 'in_progress') {
+                $this->logInfo($m, 'Conversation is being served by CS (in_progress). Keeping bot in silent mode', [
+                    'conversation_id' => $conversation->id,
+                    'message_id' => $message->id,
+                    'ticket_code' => $activeTicket->ticket_code,
+                ]);
+
+                return $message;
+            }
+
+            // Kasus 2: Tiket masih menunggu antrean (queued)
+            // Jika pelanggan mengirim pesan tambahan saat masih antre, kirimkan auto-reminder sopan dengan nomor antreannya
+            // Gunakan ambang batas 30 detik dari pesan bot terakhir untuk mencegah spam loop balasan
+            $lastBotMsg = Message::where('conversation_id', $conversation->id)
+                ->where('is_from_me', true)
+                ->where('sender_type', 'bot')
+                ->latest('sent_at')
+                ->first();
+
+            $canSendQueueReminder = ! $lastBotMsg 
+                || $lastBotMsg->sent_at?->diffInSeconds(now()) >= 30;
+
+            if ($canSendQueueReminder) {
+                /** @var TicketService $ticketService */
+                $ticketService = app(TicketService::class);
+                $queuePos = $ticketService->calculateQueuePosition($activeTicket);
+                $customerName = $conversation->customer?->name ?: ($conversation->name ?: 'Pelanggan');
+
+                $reminderText = "Halo Kak *{$customerName}*, pesan tambahan Kakak sudah kami terima dan tercatat di dashboard Customer Service.\n\nSaat ini Kakak masih berada dalam antrean nomor: *#{$queuePos}*.\nTim Customer Care kami akan segera merespons di obrolan ini. Mohon ditunggu ya Kak 🙏";
+
+                $this->sendMessage($conversation->id, $reminderText, 'bot');
+
+                $this->logInfo($m, 'Sent queue waiting reminder to customer in queued ticket', [
+                    'conversation_id' => $conversation->id,
+                    'ticket_code' => $activeTicket->ticket_code,
+                    'queue_position' => $queuePos,
+                ]);
+            }
 
             return $message;
         }
@@ -798,7 +853,13 @@ class ConversationServiceImpl implements ConversationService
             'status' => $newStatus,
         ]);
 
-        broadcast(new ConversationUpdated($conversation));
+        try {
+            broadcast(new ConversationUpdated($conversation));
+        } catch (\Throwable $e) {
+            $this->logWarning($m, 'Failed broadcasting handler update to WebSocket: '.$e->getMessage(), [
+                'conversation_id' => $conversation->id,
+            ]);
+        }
 
         // 2. Jika mode diubah ke human, jadwalkan auto-restore ke AI setelah 10 menit
         if ($normalizedHandler === 'human') {

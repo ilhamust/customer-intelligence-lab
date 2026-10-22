@@ -118,6 +118,30 @@ class GenerateAiReplyJob implements ShouldQueue
             $isTicketEscalationReply = $conversation->activeTicket !== null
                 && $conversation->activeTicket->created_at?->diffInSeconds(now()) < 120;
 
+            // Pastikan jika tiket antrean baru saja dibuat, balasan WhatsApp memuat informasi antrean resmi
+            if ($isTicketEscalationReply && $conversation->activeTicket) {
+                /** @var \App\Service\Bot\Contracts\TicketService $ticketService */
+                $ticketService = app(\App\Service\Bot\Contracts\TicketService::class);
+                $queuePos = $ticketService->calculateQueuePosition($conversation->activeTicket);
+                $customerName = $conversation->customer?->name ?: ($conversation->name ?: 'Pelanggan');
+                $officialQueueText = $ticketService->buildQueueNotificationText(
+                    $queuePos,
+                    $conversation->activeTicket->category,
+                    $customerName
+                );
+
+                $containsQueueInfo = str_contains($replyText, 'antrean')
+                    || str_contains($replyText, 'Antrean')
+                    || str_contains($replyText, 'Customer Service')
+                    || str_contains($replyText, 'Customer Care');
+
+                // Jika respons AI belum memuat info antrean (misal AI cuma membalas sapaan 'Hai!'),
+                // gunakan teks notifikasi antrean resmi agar pelanggan pasti mengetahui nomor antreannya.
+                if (! $containsQueueInfo) {
+                    $replyText = $officialQueueText;
+                }
+            }
+
             if ($humanAlreadyReplied || ($conversation->handler !== 'ai' && ! $isTicketEscalationReply)) {
                 Log::info('[GenerateAiReplyJob] Safety guard triggered: Human takeover or human already replied, aborting AI reply', [
                     ...$logContext,
@@ -173,7 +197,14 @@ class GenerateAiReplyJob implements ShouldQueue
             ]);
 
             // Broadcast event agar tampilan chat di web dashboard terupdate secara realtime
-            broadcast(new MessageReceived($botMessage, $conversation));
+            try {
+                broadcast(new MessageReceived($botMessage, $conversation));
+            } catch (\Throwable $e) {
+                Log::warning('[GenerateAiReplyJob] Failed broadcasting bot reply to WebSocket: '.$e->getMessage(), [
+                    ...$logContext,
+                    'bot_message_id' => $botMessage->id,
+                ]);
+            }
 
         } catch (Exception $e) {
             // Pastikan presence typing dimatikan jika terjadi error

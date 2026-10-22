@@ -73,7 +73,13 @@ class TicketServiceImpl implements TicketService
         ]);
 
         // Broadcast antrean baru ke dashboard via Reverb
-        broadcast(new TicketQueueUpdated($ticket, 'created'));
+        try {
+            broadcast(new TicketQueueUpdated($ticket, 'created'));
+        } catch (\Throwable $e) {
+            Log::warning('[TicketService::createTicket] Failed broadcasting ticket creation: '.$e->getMessage(), [
+                'ticket_id' => $ticket->id,
+            ]);
+        }
 
         return $ticket;
     }
@@ -124,8 +130,14 @@ class TicketServiceImpl implements TicketService
         ]);
 
         // Broadcast pembaruan status percakapan dan antrean tiket via Reverb
-        broadcast(new ConversationUpdated($conversation));
-        broadcast(new TicketQueueUpdated($ticket, 'serving'));
+        try {
+            broadcast(new ConversationUpdated($conversation));
+            broadcast(new TicketQueueUpdated($ticket, 'serving'));
+        } catch (\Throwable $e) {
+            Log::warning('[TicketService::startServingTicket] Failed broadcasting serving update: '.$e->getMessage(), [
+                'ticket_id' => $ticket->id,
+            ]);
+        }
 
         return $ticket->fresh(['conversation.customer', 'customer']);
     }
@@ -174,8 +186,14 @@ class TicketServiceImpl implements TicketService
         ]);
 
         // Broadcast pembaruan status percakapan dan antrean tiket via Reverb
-        broadcast(new ConversationUpdated($conversation));
-        broadcast(new TicketQueueUpdated($ticket, 'resolved'));
+        try {
+            broadcast(new ConversationUpdated($conversation));
+            broadcast(new TicketQueueUpdated($ticket, 'resolved'));
+        } catch (\Throwable $e) {
+            Log::warning('[TicketService::resolveTicket] Failed broadcasting resolution update: '.$e->getMessage(), [
+                'ticket_id' => $ticket->id,
+            ]);
+        }
 
         return $ticket->fresh(['conversation.customer', 'customer']);
     }
