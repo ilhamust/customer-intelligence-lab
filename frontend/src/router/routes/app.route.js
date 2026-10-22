@@ -21,6 +21,11 @@ export default [
         name: 'Customers',
         component: () => import('@/pages/app/customers/CustomerListPage.vue'),
       },
+      {
+        path: 'tickets',
+        name: 'Tickets',
+        component: () => import('@/pages/app/tickets/TicketListPage.vue'),
+      },
     ],
   },
 ]

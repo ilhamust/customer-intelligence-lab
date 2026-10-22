@@ -224,7 +224,7 @@ class TicketServiceImpl implements TicketService
             END ASC
         ")->orderBy('created_at', 'asc')->get();
 
-        $data = $tickets->map(fn (Ticket $t) => $this->formatTicket($t))->all();
+        $data = $tickets->map(fn ($t) => $this->formatTicket($t))->all();
 
         return [
             'data' => $data,
@@ -369,9 +369,28 @@ TEXT;
     }
 
     /**
+     * Get real-time status of whether CS is currently serving an active ticket or idle, along with queue counts.
+     */
+    public function getCsStatus(): array
+    {
+        $activeServing = Ticket::with(['conversation.customer', 'customer'])
+            ->where('status', 'in_progress')
+            ->latest('updated_at')
+            ->first();
+
+        return [
+            'is_busy' => $activeServing !== null,
+            'active_ticket' => $activeServing ? $this->formatTicket($activeServing) : null,
+            'queued_count' => Ticket::where('status', 'queued')->count(),
+            'in_progress_count' => Ticket::where('status', 'in_progress')->count(),
+            'resolved_today_count' => Ticket::where('status', 'resolved')->whereDate('resolved_at', today())->count(),
+        ];
+    }
+
+    /**
      * Format a Ticket model into an array payload.
      */
-    protected function formatTicket(Ticket $t): array
+    public function formatTicket(Ticket $t): array
     {
         $customer = $t->customer ?: $t->conversation?->customer;
         $customerName = $customer?->name ?: ($t->conversation?->name ?: 'Pelanggan');

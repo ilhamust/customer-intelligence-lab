@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Bot\ConversationController;
 use App\Http\Controllers\Bot\CustomerController;
+use App\Http\Controllers\Bot\TicketController;
 use App\Http\Controllers\Webhooks\WhatsappWebhookController;
 use App\Http\Controllers\Whatsapp\WhatsappDeviceController;
 use App\Http\Middleware\VerifyHmacSignature;
@@ -41,5 +42,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/{id}/messages', [ConversationController::class, 'send'])->name('conversations.messages.send');
         Route::post('/{id}/typing', [ConversationController::class, 'typing'])->name('conversations.typing');
         Route::patch('/{id}/handler', [ConversationController::class, 'updateHandler'])->name('conversations.handler.update');
+    });
+
+    // Customer Support Tickets & Queue Management
+    Route::prefix('tickets')->group(function () {
+        Route::get('/', [TicketController::class, 'index'])->name('tickets.index');
+        Route::get('/status', [TicketController::class, 'status'])->name('tickets.status');
+        Route::post('/{id}/serve', [TicketController::class, 'serve'])->name('tickets.serve');
+        Route::post('/{id}/resolve', [TicketController::class, 'resolve'])->name('tickets.resolve');
     });
 });

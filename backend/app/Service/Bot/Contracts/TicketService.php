@@ -91,4 +91,24 @@ interface TicketService
      * Get the human-readable Indonesian label for a ticket category.
      */
     public function getCategoryLabel(string $category): string;
+
+    /**
+     * Get real-time status of whether CS is currently serving an active ticket or idle, along with queue counts.
+     *
+     * @return array{
+     *     is_busy: bool,
+     *     active_ticket: array<string, mixed>|null,
+     *     queued_count: int,
+     *     in_progress_count: int,
+     *     resolved_today_count: int
+     * }
+     */
+    public function getCsStatus(): array;
+
+    /**
+     * Format a Ticket model into a frontend-compatible array payload.
+     *
+     * @return array<string, mixed>
+     */
+    public function formatTicket(Ticket $ticket): array;
 }

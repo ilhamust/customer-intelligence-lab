@@ -100,7 +100,7 @@ class ConversationServiceImpl implements ConversationService
             ->orderBy('updated_at', 'desc')
             ->get();
 
-        $data = $conversations->map(fn (Conversation $c) => $this->formatConversation($c))->all();
+        $data = $conversations->map(fn ($c) => $this->formatConversation($c))->all();
 
         return [
             'data' => $data,
@@ -145,7 +145,7 @@ class ConversationServiceImpl implements ConversationService
             ->reverse()
             ->values();
 
-        return $messages->map(fn (Message $m) => $this->formatMessage($m))->all();
+        return $messages->map(fn ($m) => $this->formatMessage($m))->all();
     }
 
     /**

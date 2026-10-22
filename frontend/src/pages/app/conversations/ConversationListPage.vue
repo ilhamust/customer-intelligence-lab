@@ -1,10 +1,12 @@
 <script setup>
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useConversationStore } from '@/stores/app/conversation.store'
 import { getInitials, formatRelativeTime, formatTime, formatPhone } from '@/utils/helper'
 import { notify, echo } from '@/plugins'
 import * as s$conversation from '@/services/app/conversation.service'
 
+const route = useRoute()
 const p$conv = useConversationStore()
 const replyInput = ref('')
 const messageContainer = ref(null)
@@ -66,6 +68,9 @@ const scrollToBottom = async () => {
 onMounted(async () => {
   try {
     await p$conv.a$fetchList()
+    if (route.query?.id) {
+      await p$conv.a$select(route.query.id)
+    }
     scrollToBottom()
   } catch (e) {
     notify.error(e?.message ?? e ?? 'Failed to load conversations')

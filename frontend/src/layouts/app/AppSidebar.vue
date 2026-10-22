@@ -94,7 +94,7 @@ const menus = [
   {
     name: 'Tickets',
     to: '/app/tickets',
-    disabled: true,
+    disabled: false,
     icon: 'ticket',
   },
   {
