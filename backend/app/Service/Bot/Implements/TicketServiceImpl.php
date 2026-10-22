@@ -60,6 +60,11 @@ class TicketServiceImpl implements TicketService
             'metadata' => $metadata,
         ]);
 
+        // Alihkan handler percakapan ke human agar bot masuk ke silent mode saat antrean
+        $conversation->update([
+            'handler' => 'human',
+        ]);
+
         Log::info('[TicketService::createTicket] Ticket created successfully', [
             'ticket_id' => $ticket->id,
             'ticket_code' => $ticket->ticket_code,
@@ -311,9 +316,9 @@ TEXT;
     public function getCategoryLabel(string $category): string
     {
         return match ($category) {
-            'points_mismatch' => 'Ketidakcocokan Saldo Poin',
-            'abnormal_transaction' => 'Transaksi Tidak Biasa / Gagal',
-            'complaint' => 'Keluhan Pelayanan',
+            TicketService::CATEGORY_POINTS_MISMATCH, 'points_mismatch' => 'Selisih Saldo Poin',
+            TicketService::CATEGORY_ABNORMAL_TRANSACTION, 'abnormal_transaction' => 'Transaksi Tidak Biasa / Gagal',
+            TicketService::CATEGORY_SERVICE_COMPLAINT, 'service_complaint', 'complaint' => 'Komplain Pelayanan',
             default => 'Bantuan Customer Service',
         };
     }

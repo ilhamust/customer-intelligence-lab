@@ -105,17 +105,25 @@ class GenerateAiReplyJob implements ShouldQueue
             // Safety Guard: Validasi ulang sebelum pengiriman pesan ke WhatsApp
             // Mengecek apakah admin telah mulai mengetik / mengambil alih percakapan atau sudah membalas manual
             $conversation->refresh();
+            $conversation->load('activeTicket');
+
             $humanAlreadyReplied = Message::where('conversation_id', $conversation->id)
                 ->where('is_from_me', true)
                 ->where('sender_type', 'human')
                 ->where('created_at', '>=', $incomingMsg->created_at)
                 ->exists();
 
-            if ($conversation->handler !== 'ai' || $humanAlreadyReplied) {
+            // Pengecualian: Jika percakapan dialihkan ke human karena AI baru saja membuat tiket eskalasi,
+            // pesan notifikasi antrean resmi tetap harus dikirimkan ke WhatsApp pelanggan sebagai pesan penutup bot.
+            $isTicketEscalationReply = $conversation->activeTicket !== null
+                && $conversation->activeTicket->created_at?->diffInSeconds(now()) < 120;
+
+            if ($humanAlreadyReplied || ($conversation->handler !== 'ai' && ! $isTicketEscalationReply)) {
                 Log::info('[GenerateAiReplyJob] Safety guard triggered: Human takeover or human already replied, aborting AI reply', [
                     ...$logContext,
                     'handler' => $conversation->handler,
                     'human_already_replied' => $humanAlreadyReplied,
+                    'is_ticket_escalation' => $isTicketEscalationReply,
                 ]);
 
                 // Jika admin sudah membalas, matikan presence.

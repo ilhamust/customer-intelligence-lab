@@ -492,21 +492,28 @@ class ConversationServiceImpl implements ConversationService
         ]);
 
         // Lazy auto-restore: Jika handler saat ini adalah human, cek apakah percakapan sudah inaktif >= 10 menit
+        // Pengecualian: Jangan auto-restore jika percakapan memiliki tiket aktif (queued atau in_progress)
         if (! $isFromMe && $conversation->handler === 'human') {
-            $cutoff = now()->subMinutes(10);
-            $lastActivity = $conversation->last_message_time;
+            $hasActiveTicket = $conversation->tickets()
+                ->whereIn('status', ['queued', 'in_progress'])
+                ->exists();
 
-            if (! $lastActivity || Carbon::parse($lastActivity)->lessThanOrEqualTo($cutoff)) {
-                $conversation->handler = 'ai';
-                $conversation->status = 'all';
+            if (! $hasActiveTicket) {
+                $cutoff = now()->subMinutes(10);
+                $lastActivity = $conversation->last_message_time;
 
-                $this->logInfo($m, 'Inactivity threshold (10m) reached on inbound message, auto-restoring handler to "ai"', [
-                    'conversation_id' => $conversation->id,
-                    'last_activity' => $lastActivity,
-                ]);
+                if (! $lastActivity || Carbon::parse($lastActivity)->lessThanOrEqualTo($cutoff)) {
+                    $conversation->handler = 'ai';
+                    $conversation->status = 'all';
 
-                // Broadcast perubahan handler ke WebSocket
-                broadcast(new ConversationUpdated($conversation));
+                    $this->logInfo($m, 'Inactivity threshold (10m) reached on inbound message, auto-restoring handler to "ai"', [
+                        'conversation_id' => $conversation->id,
+                        'last_activity' => $lastActivity,
+                    ]);
+
+                    // Broadcast perubahan handler ke WebSocket
+                    broadcast(new ConversationUpdated($conversation));
+                }
             }
         }
 
@@ -524,6 +531,22 @@ class ConversationServiceImpl implements ConversationService
 
         // Broadcast incoming message to WebSocket clients
         broadcast(new MessageReceived($message, $conversation));
+
+        // Intersepsi Tiket Aktif: Jika percakapan memiliki tiket berstatus queued atau in_progress,
+        // pesan sudah disimpan dan disiarkan ke dashboard CS (di atas), lalu bypass GenerateAiReplyJob
+        // agar bot AI tetap diam (silent mode) selama pelanggan menunggu dalam antrean atau berbicara dengan CS.
+        $hasActiveTicket = $conversation->tickets()
+            ->whereIn('status', ['queued', 'in_progress'])
+            ->exists();
+
+        if ($hasActiveTicket) {
+            $this->logInfo($m, 'Conversation has an active ticket (queued/in_progress). Bypassing AI auto-reply to keep bot silent', [
+                'conversation_id' => $conversation->id,
+                'message_id' => $message->id,
+            ]);
+
+            return $message;
+        }
 
         // Automatically handle registration flow for new customers or dispatch AI reply for registered customers
         if (! $isFromMe && $conversation->handler === 'ai') {

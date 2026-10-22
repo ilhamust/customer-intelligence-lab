@@ -7,6 +7,14 @@ use App\Models\Bot\Ticket;
 
 interface TicketService
 {
+    public const CATEGORY_POINTS_MISMATCH = 'points_mismatch';
+
+    public const CATEGORY_ABNORMAL_TRANSACTION = 'abnormal_transaction';
+
+    public const CATEGORY_SERVICE_COMPLAINT = 'service_complaint';
+
+    public const CATEGORY_GENERAL_HUMAN = 'general_human';
+
     /**
      * Create a new ticket, calculate FIFO queue position, and return the ticket.
      *

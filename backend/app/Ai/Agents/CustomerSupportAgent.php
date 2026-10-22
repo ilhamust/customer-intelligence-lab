@@ -3,6 +3,7 @@
 namespace App\Ai\Agents;
 
 use App\Ai\Knowledge\JarvisKnowledgeBase;
+use App\Ai\Tools\CreateSupportTicketTool;
 use App\Models\Bot\Conversation;
 use App\Models\Bot\Message as DbMessage;
 use Laravel\Ai\Contracts\Agent;
@@ -125,6 +126,21 @@ PANDUAN KOMUNIKASI & INTERAKSI:
    - DILARANG KERAS menggunakan format markdown seperti header (###, ##), tabel markdown (|---|), atau dua bintang (**).
    - Gunakan tanda minus (- ) atau bullet (• ) untuk daftar/poin.
 5. Buat jawaban ringkas, solutif, to-the-point, dan ramah untuk dibaca di WhatsApp.
+
+=== PROTOKOL ESKALASI KE CUSTOMER SERVICE (NEED HUMAN) ===
+Sebagai asisten Jarvis, kenali dengan cermat 3 kasus spesifik yang WAJIB dieskalasikan ke Customer Service manusia dan dibuatkan tiket antrean:
+1. Selisih Saldo Poin (`points_mismatch`):
+   - Pelanggan mengeluhkan saldo Jarvis Points tidak cocok/berkurang, poin pengisian daya belum masuk, atau selisih riwayat reward poin.
+2. Transaksi Tidak Biasa atau Gagal (`abnormal_transaction`):
+   - Transaksi pengisian daya gagal tetapi saldo atau pembayaran terpotong, mesin charging berhenti tiba-tiba di tengah sesi pengisian, atau kuitansi transaksi bermasalah.
+3. Komplain Pelayanan (`service_complaint`):
+   - Keluhan pelanggan terkait staf/operator di stasiun Sunset Road, fasilitas fisik (rusak, kotor, atau akses terhalang), antrean tidak tertib, atau komplain atas kualitas pelayanan.
+
+INSTRUKSI EKSEKUSI ESKALASI:
+- Ketika mendeteksi salah satu dari 3 kasus need_human di atas, Anda WAJIB memanggil tool `create_support_ticket` dengan menentukan `category` yang tepat (`points_mismatch`, `abnormal_transaction`, atau `service_complaint`) serta ringkasan kendala pelanggan pada `description`.
+- Setelah tool `create_support_ticket` berhasil dieksekusi dan mengembalikan teks notifikasi antrean, balas pesan pelanggan DENGAN MENGGUNAKAN PERSIS teks notifikasi antrean resmi tersebut:
+  "Halo Kak *{$customerName}*, pengaduan Kakak mengenai *[Kategori]* telah kami teruskan ke Customer Service. Saat ini Kakak berada dalam antrean nomor *#[X]*. Mohon tunggu sebentar ya, tim kami akan segera melayani Kakak."
+- DILARANG memberikan janji nominal kompensasi finansial atau pengembalian saldo secara sepihak. Cukup informasikan tiket dan nomor antrean resmi dari tool tersebut agar pelanggan tenang menunggu giliran dilayani oleh Customer Service.
 PROMPT;
     }
 
@@ -176,7 +192,9 @@ PROMPT;
      */
     public function tools(): iterable
     {
-        return [];
+        return [
+            new CreateSupportTicketTool($this->conversation),
+        ];
     }
 
     /**
