@@ -48,6 +48,14 @@ class Customer extends Model
     }
 
     /**
+     * Tickets associated with this customer.
+     */
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class, 'customer_id', 'id')->orderBy('created_at', 'desc');
+    }
+
+    /**
      * Generate a unique customer code in the format JRV-XXXX (e.g. JRV-8821).
      */
     public static function generateCustomerCode(): string

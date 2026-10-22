@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Conversation extends Model
 {
@@ -65,5 +66,23 @@ class Conversation extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class, 'customer_id', 'id');
+    }
+
+    /**
+     * Tickets associated with this conversation.
+     */
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class, 'conversation_id', 'id')->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Active ticket for this conversation (queued or in_progress).
+     */
+    public function activeTicket(): HasOne
+    {
+        return $this->hasOne(Ticket::class, 'conversation_id', 'id')
+            ->whereIn('status', ['queued', 'in_progress'])
+            ->latestOfMany();
     }
 }
