@@ -203,7 +203,7 @@ class TicketServiceImpl implements TicketService
      */
     public function listTickets(array $filters = []): array
     {
-        $query = Ticket::with(['conversation', 'customer']);
+        $query = Ticket::with(['conversation.customer', 'customer']);
 
         // Filter status
         $status = $filters['status'] ?? 'all';
@@ -242,15 +242,32 @@ class TicketServiceImpl implements TicketService
             END ASC
         ")->orderBy('created_at', 'asc')->get();
 
+        $queuedIndex = 0;
+        foreach ($tickets as $t) {
+            if ($t->status === 'queued') {
+                $queuedIndex++;
+                $t->dynamic_queue_position = $queuedIndex;
+            }
+        }
+
         $data = $tickets->map(fn ($t) => $this->formatTicket($t))->all();
+
+        $counts = \Illuminate\Support\Facades\DB::table('tickets')
+            ->selectRaw("
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE status = 'queued') as queued,
+                COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress,
+                COUNT(*) FILTER (WHERE status = 'resolved') as resolved
+            ")
+            ->first();
 
         return [
             'data' => $data,
             'summary' => [
-                'total' => Ticket::count(),
-                'queued' => Ticket::where('status', 'queued')->count(),
-                'in_progress' => Ticket::where('status', 'in_progress')->count(),
-                'resolved' => Ticket::where('status', 'resolved')->count(),
+                'total' => (int) ($counts?->total ?? 0),
+                'queued' => (int) ($counts?->queued ?? 0),
+                'in_progress' => (int) ($counts?->in_progress ?? 0),
+                'resolved' => (int) ($counts?->resolved ?? 0),
             ],
         ];
     }
@@ -381,7 +398,11 @@ TEXT;
         ]);
 
         // Siarkan pembaruan pesan ke WebSocket Reverb
-        broadcast(new MessageReceived($message, $conversation));
+        try {
+            broadcast(new MessageReceived($message, $conversation));
+        } catch (\Throwable $e) {
+            Log::warning('[TicketService::sendMessageToCustomer] Failed broadcasting message: '.$e->getMessage());
+        }
 
         return $message;
     }
@@ -396,12 +417,20 @@ TEXT;
             ->latest('updated_at')
             ->first();
 
+        $counts = \Illuminate\Support\Facades\DB::table('tickets')
+            ->selectRaw("
+                COUNT(*) FILTER (WHERE status = 'queued') as queued_count,
+                COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress_count,
+                COUNT(*) FILTER (WHERE status = 'resolved' AND resolved_at >= CURRENT_DATE) as resolved_today_count
+            ")
+            ->first();
+
         return [
             'is_busy' => $activeServing !== null,
             'active_ticket' => $activeServing ? $this->formatTicket($activeServing) : null,
-            'queued_count' => Ticket::where('status', 'queued')->count(),
-            'in_progress_count' => Ticket::where('status', 'in_progress')->count(),
-            'resolved_today_count' => Ticket::where('status', 'resolved')->whereDate('resolved_at', today())->count(),
+            'queued_count' => (int) ($counts?->queued_count ?? 0),
+            'in_progress_count' => (int) ($counts?->in_progress_count ?? 0),
+            'resolved_today_count' => (int) ($counts?->resolved_today_count ?? 0),
         ];
     }
 
@@ -427,7 +456,9 @@ TEXT;
             'category_label' => $this->getCategoryLabel($t->category),
             'priority' => $t->priority,
             'status' => $t->status,
-            'queue_position' => $t->status === 'queued' ? $this->calculateQueuePosition($t) : 0,
+            'queue_position' => $t->status === 'queued'
+                ? ($t->dynamic_queue_position ?? $this->calculateQueuePosition($t))
+                : 0,
             'resolution_notes' => $t->resolution_notes,
             'metadata' => $t->metadata,
             'created_at' => $t->created_at?->toISOString(),

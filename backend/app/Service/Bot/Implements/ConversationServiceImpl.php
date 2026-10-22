@@ -66,12 +66,7 @@ class ConversationServiceImpl implements ConversationService
         $m = __METHOD__;
         $this->logInfo($m, 'Listing conversations', ['filters' => $filters]);
 
-        $query = Conversation::with([
-            'customer',
-            'messages' => function ($q) {
-                $q->orderBy('sent_at', 'asc');
-            },
-        ]);
+        $query = Conversation::with(['customer']);
 
         if (! empty($filters['device_id'])) {
             $query->where('device_id', $filters['device_id']);
@@ -103,12 +98,20 @@ class ConversationServiceImpl implements ConversationService
 
         $data = $conversations->map(fn ($c) => $this->formatConversation($c))->all();
 
+        $summary = \Illuminate\Support\Facades\DB::table('conversations')
+            ->selectRaw("
+                COUNT(*) as all_count,
+                COUNT(*) FILTER (WHERE unread_count > 0) as unread,
+                COUNT(*) FILTER (WHERE status = 'escalated' OR handler = 'human') as escalated
+            ")
+            ->first();
+
         return [
             'data' => $data,
             'summary' => [
-                'all' => Conversation::count(),
-                'unread' => Conversation::where('unread_count', '>', 0)->count(),
-                'escalated' => Conversation::where('status', 'escalated')->orWhere('handler', 'human')->count(),
+                'all' => (int) ($summary?->all_count ?? 0),
+                'unread' => (int) ($summary?->unread ?? 0),
+                'escalated' => (int) ($summary?->escalated ?? 0),
             ],
         ];
     }

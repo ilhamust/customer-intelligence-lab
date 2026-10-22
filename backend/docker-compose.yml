@@ -9,12 +9,14 @@ services:
         ports:
             - '${APP_PORT:-8000}:80'
         environment:
+            PHP_CLI_SERVER_WORKERS: '4'
             GOWA_BASE_URL: 'http://gowa:3000'
             REVERB_HOST: 'reverb'
         working_dir: /var/www/html
         command: php artisan serve --host=0.0.0.0 --port=80
         volumes:
             - '.:/var/www/html'
+            - './docker/php/conf.d/opcache.ini:/usr/local/etc/php/conf.d/opcache.ini'
         networks:
             - sail
         depends_on:
@@ -43,6 +45,7 @@ services:
         command: php artisan reverb:start --host=0.0.0.0 --port=8080
         volumes:
             - '.:/var/www/html'
+            - './docker/php/conf.d/opcache.ini:/usr/local/etc/php/conf.d/opcache.ini'
         networks:
             - sail
         restart: unless-stopped
@@ -67,6 +70,7 @@ services:
         command: php artisan queue:work --tries=3 --timeout=120
         volumes:
             - '.:/var/www/html'
+            - './docker/php/conf.d/opcache.ini:/usr/local/etc/php/conf.d/opcache.ini'
         networks:
             - sail
         restart: unless-stopped

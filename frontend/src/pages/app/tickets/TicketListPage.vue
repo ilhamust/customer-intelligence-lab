@@ -84,13 +84,18 @@ const handleOpenServeModal = (ticket) => {
 
 const handleConfirmServe = async (adminName) => {
   if (!activeActionTicket.value) return
+  const targetConvId = activeActionTicket.value.conversation_id
   try {
     const served = await p$ticket.a$serveTicket(
       activeActionTicket.value.id,
       adminName
     )
     showServeModal.value = false
-    notify.success(`Mulai melayani tiket ${served.ticket_code}`)
+    notify.success(`Mulai melayani tiket ${served?.ticket_code || ''}`)
+    const finalConvId = served?.conversation_id || targetConvId
+    if (finalConvId) {
+      handleOpenChat(finalConvId)
+    }
   } catch (e) {
     notify.error(e?.message ?? e ?? 'Gagal melayani tiket')
   }
