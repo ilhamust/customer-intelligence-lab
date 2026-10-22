@@ -4,9 +4,11 @@ namespace App\Providers;
 
 use App\Service\Bot\Contracts\ConversationService;
 use App\Service\Bot\Contracts\CustomerRegistrationService;
+use App\Service\Bot\Contracts\TicketService;
 use App\Service\Bot\Contracts\WifiTokenService;
 use App\Service\Bot\Implements\ConversationServiceImpl;
 use App\Service\Bot\Implements\CustomerRegistrationServiceImpl;
+use App\Service\Bot\Implements\TicketServiceImpl;
 use App\Service\Bot\Implements\WifiTokenServiceImpl;
 use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use App\Service\Whatsapp\Implements\GowaGatewayServiceImpl;
@@ -37,6 +39,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             CustomerRegistrationService::class,
             CustomerRegistrationServiceImpl::class
+        );
+
+        $this->app->bind(
+            TicketService::class,
+            TicketServiceImpl::class
         );
     }
 
