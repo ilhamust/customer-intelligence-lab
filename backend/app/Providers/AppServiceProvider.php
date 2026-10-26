@@ -12,6 +12,7 @@ use App\Service\Bot\Implements\TicketServiceImpl;
 use App\Service\Bot\Implements\WifiTokenServiceImpl;
 use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use App\Service\Whatsapp\Implements\GowaGatewayServiceImpl;
+use App\Ai\Guardrails\GuardrailManager;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -45,6 +46,10 @@ class AppServiceProvider extends ServiceProvider
             TicketService::class,
             TicketServiceImpl::class
         );
+
+        $this->app->singleton(GuardrailManager::class, function () {
+            return new GuardrailManager();
+        });
     }
 
     /**
