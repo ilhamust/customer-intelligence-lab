@@ -18,7 +18,7 @@ class DirectHumanBypassGuard implements InputGuardrailInterface
         '/^(?:halo\s+|hi\s+|hai\s+)?(?:cs|admin|operator|customer\s+service|customer\s+care)[!?. ]*$/ui',
 
         // 2. Permintaan bicara / terhubung ke CS atau manusia
-        '/(?:bicara|ngobrol|hubung(?:i|kan)|sambung(?:kan)?|alihkan)\s+(?:ke\s+|dengan\s+|sama\s+)?(?:cs|customer\s+service|customer\s+care|admin|manusia|orang\s+asli|operator|staf)/ui',
+        '/(?:bicara|ngobrol|hubung(?:i|kan)|sambung(?:kan)?|alihkan)\s+(?:(?:saya|kami)\s+)?(?:ke\s+|dengan\s+|sama\s+)?(?:staf\s+)?(?:cs|customer\s+service|customer\s+care|admin|manusia|orang\s+asli|operator|staf)/ui',
 
         // 3. Permintaan bantuan khusus orang asli / manusia
         '/(?:butuh|minta|tolong)\s+(?:bantuan\s+)?(?:manusia|orang\s+asli|operator|staf\s+resmi)/ui',

@@ -15,6 +15,7 @@ use Laravel\Ai\Messages\Message;
 use Laravel\Ai\Messages\UserMessage;
 use Laravel\Ai\Promptable;
 use Laravel\Ai\Providers\Tools\ProviderTool;
+use App\Ai\Guardrails\Output\WhatsAppSanitizerGuard;
 use Stringable;
 
 class CustomerSupportAgent implements Agent, Conversational, HasTools
@@ -199,22 +200,10 @@ PROMPT;
 
     /**
      * Format dan bersihkan teks balasan AI agar sesuai dengan standar WhatsApp.
-     * Mengonversi format Markdown umum (misal **teks** menjadi *teks*).
+     * Didelegasikan ke WhatsAppSanitizerGuard untuk memastikan standardisasi sentral.
      */
     public static function formatForWhatsApp(string $text): string
     {
-        // Ubah markdown header (### Judul atau ## Judul) menjadi bold WhatsApp (*Judul*)
-        $text = preg_replace('/^#{1,6}\s+(.+)$/m', '*$1*', $text);
-
-        // Ubah triple asterisks ***teks*** (bold + italic) menjadi *_teks_*
-        $text = preg_replace('/\*{3}(.+?)\*{3}/s', '*_$1_*', $text);
-
-        // Ubah double asterisks **teks** (bold) menjadi *teks*
-        $text = preg_replace('/\*{2}(.+?)\*{2}/s', '*$1*', $text);
-
-        // Ubah strikethrough ~~teks~~ menjadi ~teks~
-        $text = preg_replace('/~~(.+?)~~/s', '~$1~', $text);
-
-        return trim($text);
+        return WhatsAppSanitizerGuard::sanitize($text);
     }
 }

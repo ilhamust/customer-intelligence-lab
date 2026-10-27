@@ -3,6 +3,8 @@
 namespace App\Jobs\Bot;
 
 use App\Ai\Agents\CustomerSupportAgent;
+use App\Ai\Guardrails\Dto\GuardrailContext;
+use App\Ai\Guardrails\GuardrailManager;
 use App\Events\Bot\MessageReceived;
 use App\Models\Bot\Conversation;
 use App\Models\Bot\Message;
@@ -42,8 +44,10 @@ class GenerateAiReplyJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(WhatsappGatewayService $whatsappGateway): void
-    {
+    public function handle(
+        WhatsappGatewayService $whatsappGateway,
+        GuardrailManager $guardrailManager
+    ): void {
         $logContext = [
             'conversation_id' => $this->conversationId,
             'message_id' => $this->incomingMessageId,
@@ -79,6 +83,59 @@ class GenerateAiReplyJob implements ShouldQueue
             return;
         }
 
+        // Siapkan konteks runtime guardrail
+        $guardrailContext = new GuardrailContext(
+            conversation: $conversation,
+            incomingMessage: $incomingMsg,
+            customer: $conversation->customer
+        );
+
+        // 1. Eksekusi Pipeline Input Guardrails (Pre-LLM)
+        $inputResult = $guardrailManager->validateInput($promptText, $guardrailContext);
+
+        // Jika input diblokir (misal: pesan terlalu panjang, spam, prompt injection)
+        if ($inputResult->isBlocked()) {
+            Log::warning('[GenerateAiReplyJob] Input blocked by guardrails', [
+                ...$logContext,
+                'reason' => $inputResult->getReason(),
+                'telemetry' => $inputResult->getTelemetry(),
+            ]);
+
+            $this->dispatchGuardrailInterventionMessage(
+                $conversation,
+                $inputResult->getModifiedText(),
+                'input_blocked',
+                $inputResult->getReason() ?? 'input_blocked',
+                $whatsappGateway,
+                $logContext
+            );
+
+            return;
+        }
+
+        // Jika input membypass LLM (misal: permintaan bicara langsung dengan customer care)
+        if ($inputResult->isBypassed()) {
+            Log::info('[GenerateAiReplyJob] Input bypassed to human by guardrails', [
+                ...$logContext,
+                'reason' => $inputResult->getReason(),
+                'telemetry' => $inputResult->getTelemetry(),
+            ]);
+
+            $this->dispatchGuardrailInterventionMessage(
+                $conversation,
+                $inputResult->getModifiedText(),
+                'input_bypassed',
+                $inputResult->getReason() ?? 'input_bypassed',
+                $whatsappGateway,
+                $logContext
+            );
+
+            return;
+        }
+
+        // Gunakan teks prompt yang telah disanitasi oleh input guardrails jika terdapat modifikasi
+        $promptText = $inputResult->getModifiedText();
+
         Log::info('[GenerateAiReplyJob] Generating AI reply via CustomerSupportAgent', $logContext);
 
         // Kirim indikator "sedang mengetik..." (typing indicator) ke WhatsApp pelanggan
@@ -88,18 +145,23 @@ class GenerateAiReplyJob implements ShouldQueue
             // Inisialisasi CustomerSupportAgent dengan histori percakapan
             $agent = new CustomerSupportAgent($conversation, $incomingMsg->id);
             $response = $agent->prompt($promptText);
-            $replyText = CustomerSupportAgent::formatForWhatsApp((string) $response->text);
+            $rawReplyText = (string) $response->text;
+
+            // 2. Eksekusi Pipeline Output Guardrails (Post-LLM)
+            $outputResult = $guardrailManager->validateOutput($rawReplyText, $guardrailContext);
+            $replyText = $outputResult->getModifiedText();
 
             if ($replyText === '') {
-                Log::warning('[GenerateAiReplyJob] AI agent returned an empty response', $logContext);
+                Log::warning('[GenerateAiReplyJob] AI guardrail output resulted in empty response', $logContext);
                 $whatsappGateway->sendChatPresence($conversation->phone, 'stop', $conversation->device_id);
 
                 return;
             }
 
-            Log::info('[GenerateAiReplyJob] AI response generated successfully', [
+            Log::info('[GenerateAiReplyJob] AI response generated and sanitized successfully', [
                 ...$logContext,
                 'reply_length' => mb_strlen($replyText),
+                'guardrail_action' => $outputResult->getAction(),
             ]);
 
             // Safety Guard: Validasi ulang sebelum pengiriman pesan ke WhatsApp
@@ -180,6 +242,11 @@ class GenerateAiReplyJob implements ShouldQueue
                     'ai_generated' => true,
                     'provider' => $response->meta?->provider ?? 'ai',
                     'model' => $response->meta?->model ?? null,
+                    'guardrails' => [
+                        'input_action' => $inputResult->getAction(),
+                        'output_action' => $outputResult->getAction(),
+                        'output_reason' => $outputResult->getReason(),
+                    ],
                 ],
             ]);
 
@@ -216,6 +283,57 @@ class GenerateAiReplyJob implements ShouldQueue
             ]);
 
             throw $e; // Throw agar queue worker dapat me-retry sesuai konfigurasi $tries & $backoff
+        }
+    }
+
+    /**
+     * Kirim pesan notifikasi intervensi guardrail (blocked atau bypassed) ke WhatsApp pelanggan
+     * serta simpan sebagai pesan bot di basis data.
+     */
+    protected function dispatchGuardrailInterventionMessage(
+        Conversation $conversation,
+        string $replyText,
+        string $interventionType,
+        string $reason,
+        WhatsappGatewayService $whatsappGateway,
+        array $logContext
+    ): void {
+        $replyText = trim($replyText);
+        if ($replyText === '') {
+            return;
+        }
+
+        $sent = $whatsappGateway->sendText(
+            $conversation->phone,
+            $replyText,
+            $conversation->device_id
+        );
+
+        $botMessage = Message::create([
+            'conversation_id' => $conversation->id,
+            'whatsapp_message_id' => null,
+            'sender_type' => 'bot',
+            'is_from_me' => true,
+            'text' => $replyText,
+            'status' => $sent ? 'delivered' : 'failed',
+            'sent_at' => now(),
+            'meta' => [
+                'ai_generated' => false,
+                'guardrail_intervention' => $interventionType,
+                'guardrail_reason' => $reason,
+            ],
+        ]);
+
+        $conversation->update([
+            'last_message' => $replyText,
+            'last_message_time' => $botMessage->sent_at,
+            'unread_count' => 0,
+        ]);
+
+        try {
+            broadcast(new MessageReceived($botMessage, $conversation));
+        } catch (\Throwable $e) {
+            Log::warning('[GenerateAiReplyJob] Failed broadcasting guardrail message to WebSocket: '.$e->getMessage(), $logContext);
         }
     }
 }

@@ -112,6 +112,8 @@ class GuardrailManager
                 Log::warning('[GuardrailManager::validateInput] Input blocked by guardrail', [
                     'guardrail' => $guardrail->name(),
                     'reason' => $result->getReason(),
+                    'original_text' => $text,
+                    'action' => $result->getAction(),
                     'conversation_id' => $context->getConversationId(),
                     'customer_phone' => $context->getCustomerPhone(),
                     'elapsed_ms' => $elapsedMs,
@@ -128,9 +130,10 @@ class GuardrailManager
 
             // Early exit jika pesan dialihkan langsung (fast bypass ke antrean CS manusia)
             if ($result->isBypassed()) {
-                Log::info('[GuardrailManager::validateInput] Input bypassed to direct action', [
+                Log::warning('[GuardrailManager::validateInput] Input bypassed to human by guardrail', [
                     'guardrail' => $guardrail->name(),
                     'reason' => $result->getReason(),
+                    'original_text' => $text,
                     'action' => $result->getAction(),
                     'conversation_id' => $context->getConversationId(),
                     'elapsed_ms' => $elapsedMs,
@@ -185,6 +188,8 @@ class GuardrailManager
                 Log::warning('[GuardrailManager::validateOutput] Output blocked and replaced by fallback', [
                     'guardrail' => $guardrail->name(),
                     'reason' => $result->getReason(),
+                    'original_text' => $text,
+                    'action' => $result->getAction() ?? 'fallback',
                     'conversation_id' => $context->getConversationId(),
                     'elapsed_ms' => $elapsedMs,
                 ]);
@@ -207,6 +212,14 @@ class GuardrailManager
         }
 
         if ($wasModified) {
+            Log::warning('[GuardrailManager::validateOutput] Output modified by guardrail pipeline', [
+                'reason' => $lastReason,
+                'original_text' => $text,
+                'action' => 'modify',
+                'conversation_id' => $context->getConversationId(),
+                'telemetries' => $telemetries,
+            ]);
+
             return GuardrailResult::modify($currentText, $lastReason ?? 'sanitized', $telemetries);
         }
 

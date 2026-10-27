@@ -13,6 +13,14 @@ use App\Service\Bot\Implements\WifiTokenServiceImpl;
 use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use App\Service\Whatsapp\Implements\GowaGatewayServiceImpl;
 use App\Ai\Guardrails\GuardrailManager;
+use App\Ai\Guardrails\Input\DirectHumanBypassGuard;
+use App\Ai\Guardrails\Input\LengthAndSpamGuard;
+use App\Ai\Guardrails\Input\ProfanityFilterGuard;
+use App\Ai\Guardrails\Input\PromptInjectionGuard;
+use App\Ai\Guardrails\Output\FallbackIntegrityGuard;
+use App\Ai\Guardrails\Output\FinancialLiabilityGuard;
+use App\Ai\Guardrails\Output\SystemLeakAndIdentityGuard;
+use App\Ai\Guardrails\Output\WhatsAppSanitizerGuard;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -48,7 +56,20 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(GuardrailManager::class, function () {
-            return new GuardrailManager();
+            return new GuardrailManager(
+                inputGuardrails: [
+                    new LengthAndSpamGuard(),
+                    new PromptInjectionGuard(),
+                    new DirectHumanBypassGuard(),
+                    new ProfanityFilterGuard(),
+                ],
+                outputGuardrails: [
+                    new FinancialLiabilityGuard(),
+                    new SystemLeakAndIdentityGuard(),
+                    new WhatsAppSanitizerGuard(),
+                    new FallbackIntegrityGuard(),
+                ]
+            );
         });
     }
 
