@@ -10,6 +10,8 @@ use App\Service\Bot\Implements\ConversationServiceImpl;
 use App\Service\Bot\Implements\CustomerRegistrationServiceImpl;
 use App\Service\Bot\Implements\TicketServiceImpl;
 use App\Service\Bot\Implements\WifiTokenServiceImpl;
+use App\Service\Loyalty\Contracts\LoyaltyService;
+use App\Service\Loyalty\Implements\LoyaltyServiceImpl;
 use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use App\Service\Whatsapp\Implements\GowaGatewayServiceImpl;
 use App\Ai\Guardrails\GuardrailManager;
@@ -53,6 +55,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             TicketService::class,
             TicketServiceImpl::class
+        );
+
+        $this->app->bind(
+            LoyaltyService::class,
+            LoyaltyServiceImpl::class
         );
 
         $this->app->singleton(GuardrailManager::class, function () {

@@ -10,6 +10,7 @@ use App\Http\Resources\Api\DataResource;
 use App\Http\Resources\Api\ErrorResource;
 use App\Http\Resources\Api\InternalErrorResource;
 use App\Models\Bot\Customer;
+use App\Service\Loyalty\Contracts\LoyaltyService;
 use App\Traits\ControllerHelpers;
 use Exception;
 use Illuminate\Http\Request;
@@ -17,6 +18,10 @@ use Illuminate\Http\Request;
 class CustomerController extends Controller
 {
     use ControllerHelpers;
+
+    public function __construct(
+        protected LoyaltyService $loyaltyService
+    ) {}
 
     /**
      * List all customers with search, filtering, and pagination.
@@ -128,7 +133,7 @@ class CustomerController extends Controller
                 'customer_id' => $customer->id,
                 'customer_code' => $customer->customer_code,
                 'points_balance' => (int) $customer->points_balance,
-                'tier' => $customer->points_balance >= 1000 ? 'Platinum' : ($customer->points_balance >= 500 ? 'Gold' : 'Silver'),
+                'tier' => $this->loyaltyService->resolveCustomerTier((int) $customer->points_balance),
             ];
 
             return $this->respondWithData($pointsData, 'Successfully retrieved customer points');
@@ -153,21 +158,21 @@ class CustomerController extends Controller
                 throw new NotFoundException("Customer [{$id}] not found.");
             }
 
-            // Ledger records from meta or welcome bonus
-            $history = $customer->meta['points_ledger'] ?? [
-                [
-                    'id' => 'led_init',
-                    'description' => 'Welcome Registration Bonus',
-                    'points' => $customer->points_balance,
-                    'type' => 'credit',
-                    'created_at' => $customer->created_at?->toIso8601String(),
-                ],
-            ];
+            $perPage = (int) $request->input('per_page', 20);
+            $paginated = $this->loyaltyService->getCustomerLedger($customer->id, $perPage);
 
             return $this->respondWithData([
                 'customer_id' => $customer->id,
-                'balance' => $customer->points_balance,
-                'ledger' => $history,
+                'customer_code' => $customer->customer_code,
+                'balance' => (int) $customer->points_balance,
+                'ledger' => $paginated->items(),
+                'data' => $paginated->items(),
+                'meta' => [
+                    'current_page' => $paginated->currentPage(),
+                    'last_page' => $paginated->lastPage(),
+                    'per_page' => $paginated->perPage(),
+                    'total' => $paginated->total(),
+                ],
             ], 'Successfully retrieved customer ledger');
         } catch (NotFoundException $e) {
             return $this->handleNotFound($e, $ctx);

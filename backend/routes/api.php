@@ -3,6 +3,7 @@
 use App\Http\Controllers\Bot\ConversationController;
 use App\Http\Controllers\Bot\CustomerController;
 use App\Http\Controllers\Bot\TicketController;
+use App\Http\Controllers\Charging\ChargingTransactionController;
 use App\Http\Controllers\Webhooks\WhatsappWebhookController;
 use App\Http\Controllers\Whatsapp\WhatsappDeviceController;
 use App\Http\Middleware\VerifyHmacSignature;
@@ -50,5 +51,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/status', [TicketController::class, 'status'])->name('tickets.status');
         Route::post('/{id}/serve', [TicketController::class, 'serve'])->name('tickets.serve');
         Route::post('/{id}/resolve', [TicketController::class, 'resolve'])->name('tickets.resolve');
+    });
+
+    // EV Charging Transactions Ingestion & Dashboard
+    Route::prefix('charging')->group(function () {
+        Route::get('/transactions', [ChargingTransactionController::class, 'index'])->name('charging.transactions.index');
+        Route::post('/transactions', [ChargingTransactionController::class, 'store'])->name('charging.transactions.store');
     });
 });

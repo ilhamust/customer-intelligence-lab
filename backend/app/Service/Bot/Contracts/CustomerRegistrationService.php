@@ -18,6 +18,7 @@ interface CustomerRegistrationService
      * @return array{
      *     name: string,
      *     vehicle: string,
+     *     plate_number: string|null,
      *     driver_type: string,
      *     residential_area: string,
      *     primary_route: string
@@ -31,6 +32,7 @@ interface CustomerRegistrationService
      * @param  array{
      *     name: string,
      *     vehicle: string,
+     *     plate_number?: string|null,
      *     driver_type: string,
      *     residential_area?: string|null,
      *     primary_route?: string|null
@@ -39,7 +41,7 @@ interface CustomerRegistrationService
     public function registerCustomer(Conversation $conversation, array $data): Customer;
 
     /**
-     * Build the official WhatsApp welcome message text containing customer ID and Wi-Fi token.
+     * Build the official WhatsApp welcome message text containing customer ID, Wi-Fi token, and retroactive points if any.
      *
      * @param  array{
      *     ssid: string,
@@ -49,7 +51,7 @@ interface CustomerRegistrationService
      *     expires_at_formatted: string
      * }  $wifiToken
      */
-    public function buildWelcomeMessageText(Customer $customer, array $wifiToken): string;
+    public function buildWelcomeMessageText(Customer $customer, array $wifiToken, int $claimedPoints = 0, int $claimedCount = 0): string;
 
     /**
      * Get the gentle reminder guide text when registration input is incomplete.

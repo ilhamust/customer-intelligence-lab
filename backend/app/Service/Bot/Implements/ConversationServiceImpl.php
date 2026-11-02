@@ -655,8 +655,15 @@ class ConversationServiceImpl implements ConversationService
                         // Generate token Wi-Fi gratis 30 menit (zona waktu WIB)
                         $wifiToken = $this->wifiTokenService->generateToken($newCustomer->name, 30);
 
-                        // Kirim welcome message resmi beserta kredensial Wi-Fi 30 menit
-                        $welcomeText = $this->customerRegistrationService->buildWelcomeMessageText($newCustomer, $wifiToken);
+                        // Kirim welcome message resmi beserta kredensial Wi-Fi 30 menit & info klaim poin jika ada
+                        $claimedPoints = (int) ($conversation->meta['claimed_retroactive_points'] ?? 0);
+                        $claimedCount = (int) ($conversation->meta['claimed_retroactive_count'] ?? 0);
+                        $welcomeText = $this->customerRegistrationService->buildWelcomeMessageText(
+                            $newCustomer,
+                            $wifiToken,
+                            $claimedPoints,
+                            $claimedCount
+                        );
                         $this->sendMessage($conversation->id, $welcomeText, 'bot');
 
                         broadcast(new ConversationUpdated($conversation));

@@ -86,6 +86,7 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
         $meta = is_array($this->conversation?->meta) ? $this->conversation->meta : [];
 
         $vehicle = $customer?->vehicle ?: ($meta['vehicle'] ?? $meta['kendaraan'] ?? 'Kendaraan Listrik');
+        $plateNumber = $customer?->plate_number ?: ($meta['plate_number'] ?? $meta['nopol'] ?? '-');
         $driverType = $customer?->driver_type ?: ($meta['driver_type'] ?? $meta['segment'] ?? 'Driver EV');
         $residentialArea = $customer?->residential_area ?: '-';
         $primaryRoute = $customer?->primary_route ?: '-';
@@ -107,6 +108,7 @@ Anda adalah asisten virtual Customer Care resmi untuk "Jarvis" (Operator Stasiun
 - Nama: {$customerName}
 - WhatsApp: {$customerPhone}
 - Kendaraan: {$vehicle}
+- Plat Nomor Kendaraan: {$plateNumber}
 - Tipe Driver / Segmen: {$driverType}
 - Area Domisili / Tinggal: {$residentialArea}
 - Rute Utama: {$primaryRoute}

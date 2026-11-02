@@ -2,6 +2,8 @@
 
 namespace App\Models\Bot;
 
+use App\Models\Charging\ChargingTransaction;
+use App\Models\Loyalty\PointsLedger;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +20,7 @@ class Customer extends Model
         'name',
         'phone',
         'vehicle',
+        'plate_number',
         'driver_type',
         'residential_area',
         'primary_route',
@@ -53,6 +56,22 @@ class Customer extends Model
     public function tickets(): HasMany
     {
         return $this->hasMany(Ticket::class, 'customer_id', 'id')->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Charging transactions completed by this customer.
+     */
+    public function chargingTransactions(): HasMany
+    {
+        return $this->hasMany(ChargingTransaction::class, 'customer_id', 'id')->orderBy('finished_at', 'desc');
+    }
+
+    /**
+     * Points ledger history for this customer.
+     */
+    public function pointsLedgers(): HasMany
+    {
+        return $this->hasMany(PointsLedger::class, 'customer_id', 'id')->orderBy('created_at', 'desc');
     }
 
     /**
