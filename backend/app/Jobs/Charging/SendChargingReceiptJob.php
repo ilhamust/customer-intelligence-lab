@@ -2,7 +2,9 @@
 
 namespace App\Jobs\Charging;
 
+use App\Models\Bot\Conversation;
 use App\Models\Charging\ChargingTransaction;
+use App\Service\Bot\Contracts\ConversationService;
 use App\Service\Loyalty\Contracts\LoyaltyService;
 use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use Carbon\Carbon;
@@ -29,7 +31,8 @@ class SendChargingReceiptJob implements ShouldQueue
      */
     public function handle(
         WhatsappGatewayService $whatsappGateway,
-        LoyaltyService $loyaltyService
+        LoyaltyService $loyaltyService,
+        ConversationService $conversationService
     ): void {
         $transaction = ChargingTransaction::with(['customer', 'pointsLedger'])->find($this->transactionId);
 
@@ -98,16 +101,37 @@ TXT;
         }
 
         try {
-            $whatsappGateway->sendText($transaction->phone, $message);
+            $phone = $transaction->phone;
+            $chatJid = "{$phone}@s.whatsapp.net";
 
-            Log::info('[SendChargingReceiptJob] Charging receipt dispatched successfully via WhatsApp', [
+            // Pastikan entitas percakapan tercatat di database agar muncul di UI Frontend
+            $conversation = Conversation::firstOrCreate(
+                ['phone' => $phone],
+                [
+                    'device_id' => 'default',
+                    'chat_jid' => $chatJid,
+                    'name' => $transaction->customer?->name ?? ($transaction->plate_number ? "Driver {$transaction->plate_number}" : "Pelanggan {$phone}"),
+                    'customer_id' => $transaction->customer_id,
+                    'handler' => 'ai',
+                    'status' => 'all',
+                ]
+            );
+
+            // Kirim pesan kuitansi melalui conversationService:
+            // 1. Mengirim ke gateway WhatsApp
+            // 2. Menyimpan baris pesan ke tabel 'messages'
+            // 3. Mem-broadcast event MessageReceived ke WebSocket Reverb agar realtime muncul di Frontend
+            $conversationService->sendMessage($conversation->id, $message, 'bot');
+
+            Log::info('[SendChargingReceiptJob] Charging receipt dispatched and persisted to conversation successfully', [
                 'transaction_id' => $transaction->id,
                 'external_id' => $transaction->external_id,
                 'phone' => $transaction->phone,
+                'conversation_id' => $conversation->id,
                 'is_member' => $transaction->customer_id !== null,
             ]);
         } catch (\Throwable $e) {
-            Log::error('[SendChargingReceiptJob] Failed to dispatch charging receipt via WhatsApp', [
+            Log::error('[SendChargingReceiptJob] Failed to dispatch charging receipt', [
                 'transaction_id' => $transaction->id,
                 'phone' => $transaction->phone,
                 'error' => $e->getMessage(),
