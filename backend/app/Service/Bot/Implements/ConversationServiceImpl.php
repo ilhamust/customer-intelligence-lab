@@ -2,6 +2,7 @@
 
 namespace App\Service\Bot\Implements;
 
+use App\Ai\Guardrails\Input\EmergencyInputGuard;
 use App\Events\Bot\ConversationUpdated;
 use App\Events\Bot\MessageReceived;
 use App\Exceptions\BadRequestException;
@@ -622,6 +623,20 @@ class ConversationServiceImpl implements ConversationService
                     'registration_step' => 'completed',
                     'name' => $customer->name,
                 ]);
+            }
+
+            // DETEKSI DARURAT PRIORITAS TINGGI (Zero Delay):
+            // Jika pesan pelanggan mengandung kata kunci bahaya fisik/keselamatan,
+            // bypass form registrasi dan grace period 6 detik untuk segera mengeksekusi EmergencyInputGuard!
+            if ((new EmergencyInputGuard())->detectEmergency($text) !== null) {
+                $this->logInfo($m, 'Emergency message detected in webhook, executing GenerateAiReplyJob immediately (0s delay)', [
+                    'conversation_id' => $conversation->id,
+                    'message_id' => $message->id,
+                ]);
+
+                GenerateAiReplyJob::dispatchSync($conversation->id, $message->id);
+
+                return $message;
             }
 
             // JIKA BELUM TERDAFTAR: Jalankan alur registrasi pelanggan baru

@@ -354,6 +354,11 @@ TEXT;
             TicketService::CATEGORY_POINTS_MISMATCH, 'points_mismatch' => 'Selisih Saldo Poin',
             TicketService::CATEGORY_ABNORMAL_TRANSACTION, 'abnormal_transaction' => 'Transaksi Tidak Biasa / Gagal',
             TicketService::CATEGORY_SERVICE_COMPLAINT, 'service_complaint', 'complaint' => 'Komplain Pelayanan',
+            'safety_hazard' => 'DARURAT: Bahaya Keselamatan / Korsleting',
+            'trapped_cable' => 'DARURAT: Konektor / Kabel Terkunci',
+            'power_outage' => 'DARURAT: Charger / Listrik Mati Total',
+            'hardware_failure' => 'DARURAT: Kerusakan Fisik Charger',
+            'general_emergency' => 'DARURAT: Insiden Darurat Stasiun',
             default => 'Bantuan Customer Service',
         };
     }

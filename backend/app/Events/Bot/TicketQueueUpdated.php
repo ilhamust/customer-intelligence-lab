@@ -97,7 +97,12 @@ class TicketQueueUpdated implements ShouldBroadcastNow
                 'category_label' => match ($this->ticket->category) {
                     'points_mismatch' => 'Ketidakcocokan Saldo Poin',
                     'abnormal_transaction' => 'Transaksi Tidak Biasa / Gagal',
-                    'complaint' => 'Keluhan Pelayanan',
+                    'complaint', 'service_complaint' => 'Keluhan Pelayanan',
+                    'safety_hazard' => 'DARURAT: Bahaya Keselamatan / Korsleting',
+                    'trapped_cable' => 'DARURAT: Konektor / Kabel Terkunci',
+                    'power_outage' => 'DARURAT: Charger / Listrik Mati Total',
+                    'hardware_failure' => 'DARURAT: Kerusakan Fisik Charger',
+                    'general_emergency' => 'DARURAT: Insiden Darurat Stasiun',
                     default => 'Bantuan Customer Service',
                 },
                 'priority' => $this->ticket->priority,

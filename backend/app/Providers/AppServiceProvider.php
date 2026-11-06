@@ -12,10 +12,13 @@ use App\Service\Bot\Implements\TicketServiceImpl;
 use App\Service\Bot\Implements\WifiTokenServiceImpl;
 use App\Service\Loyalty\Contracts\LoyaltyService;
 use App\Service\Loyalty\Implements\LoyaltyServiceImpl;
+use App\Service\Staff\Contracts\StationStaffService;
+use App\Service\Staff\Implements\StationStaffServiceImpl;
 use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use App\Service\Whatsapp\Implements\GowaGatewayServiceImpl;
 use App\Ai\Guardrails\GuardrailManager;
 use App\Ai\Guardrails\Input\DirectHumanBypassGuard;
+use App\Ai\Guardrails\Input\EmergencyInputGuard;
 use App\Ai\Guardrails\Input\LengthAndSpamGuard;
 use App\Ai\Guardrails\Input\ProfanityFilterGuard;
 use App\Ai\Guardrails\Input\PromptInjectionGuard;
@@ -62,9 +65,15 @@ class AppServiceProvider extends ServiceProvider
             LoyaltyServiceImpl::class
         );
 
+        $this->app->bind(
+            StationStaffService::class,
+            StationStaffServiceImpl::class
+        );
+
         $this->app->singleton(GuardrailManager::class, function () {
             return new GuardrailManager(
                 inputGuardrails: [
+                    new EmergencyInputGuard(),
                     new LengthAndSpamGuard(),
                     new PromptInjectionGuard(),
                     new DirectHumanBypassGuard(),

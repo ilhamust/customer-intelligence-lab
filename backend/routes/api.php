@@ -4,6 +4,7 @@ use App\Http\Controllers\Bot\ConversationController;
 use App\Http\Controllers\Bot\CustomerController;
 use App\Http\Controllers\Bot\TicketController;
 use App\Http\Controllers\Charging\ChargingTransactionController;
+use App\Http\Controllers\Staff\StationStaffController;
 use App\Http\Controllers\Webhooks\WhatsappWebhookController;
 use App\Http\Controllers\Whatsapp\WhatsappDeviceController;
 use App\Http\Middleware\VerifyHmacSignature;
@@ -57,5 +58,15 @@ Route::prefix('v1')->group(function () {
     Route::prefix('charging')->group(function () {
         Route::get('/transactions', [ChargingTransactionController::class, 'index'])->name('charging.transactions.index');
         Route::post('/transactions', [ChargingTransactionController::class, 'store'])->name('charging.transactions.store');
+    });
+
+    // Station Staff & On-Duty Emergency Contact Management
+    Route::prefix('staff')->group(function () {
+        Route::get('/', [StationStaffController::class, 'index'])->name('staff.index');
+        Route::post('/', [StationStaffController::class, 'store'])->name('staff.store');
+        Route::get('/{id}', [StationStaffController::class, 'show'])->name('staff.show');
+        Route::put('/{id}', [StationStaffController::class, 'update'])->name('staff.update');
+        Route::delete('/{id}', [StationStaffController::class, 'destroy'])->name('staff.destroy');
+        Route::patch('/{id}/toggle-duty', [StationStaffController::class, 'toggleDuty'])->name('staff.toggle-duty');
     });
 });
