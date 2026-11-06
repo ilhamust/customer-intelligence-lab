@@ -1,5 +1,7 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useStaffStore } from '@/stores/app/staff.store'
+import ActiveAlertsModal from '@/pages/app/staff/components/ActiveAlertsModal.vue'
 
 defineProps({
   isSidebarCollapsed: {
@@ -10,7 +12,9 @@ defineProps({
 
 defineEmits(['toggle-sidebar'])
 
+const p$staff = useStaffStore()
 const currentTheme = ref('light')
+const showAlertModal = ref(false)
 
 const toggleTheme = () => {
   currentTheme.value = currentTheme.value === 'light' ? 'dark' : 'light'
@@ -20,16 +24,60 @@ const toggleTheme = () => {
 onMounted(() => {
   const initialTheme = document.documentElement.getAttribute('data-theme') || 'light'
   currentTheme.value = initialTheme
+
+  // Ambil alert darurat aktif dan inisialisasi WebSocket Reverb
+  p$staff.a$fetchActiveAlerts()
+  p$staff.a$initWebSocket()
+})
+
+onUnmounted(() => {
+  p$staff.a$stopWebSocket()
 })
 </script>
 
 <template>
   <header class="h-16 bg-base-100 border-b border-base-300 px-6 flex items-center justify-between shrink-0 select-none z-20">
-    <!-- Left Section: Spacer -->
-    <div></div>
+    <!-- Left Section: Emergency Alert Banner if Active -->
+    <div class="flex items-center gap-2">
+      <button
+        v-if="p$staff.g$hasActiveAlerts"
+        @click="showAlertModal = true"
+        class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-error/15 border border-error/40 text-error hover:bg-error/25 transition-all cursor-pointer animate-pulse select-none shadow-xs"
+        title="Klik untuk meninjau insiden darurat 24/7"
+      >
+        <span class="w-2.5 h-2.5 rounded-full bg-error animate-ping"></span>
+        <span class="text-xs font-black tracking-tight">
+          🚨 {{ p$staff.g$activeAlertsCount }} INSIDEN DARURAT AKTIF
+        </span>
+        <span class="badge badge-xs bg-error text-white font-mono font-bold">
+          Level 3
+        </span>
+      </button>
+    </div>
 
     <!-- Right Controls -->
     <div class="flex items-center gap-3">
+      <!-- Emergency Icon Button (Always visible) -->
+      <button
+        @click="showAlertModal = true"
+        class="btn btn-ghost btn-circle btn-sm relative text-base-content/60 hover:text-error hover:bg-error/10"
+        title="Monitor Insiden Darurat 24/7"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        <span
+          v-if="p$staff.g$hasActiveAlerts"
+          class="w-2 h-2 rounded-full bg-error absolute top-1 right-1 animate-ping"
+        ></span>
+        <span
+          v-if="p$staff.g$hasActiveAlerts"
+          class="w-2 h-2 rounded-full bg-error absolute top-1 right-1"
+        ></span>
+      </button>
+
       <!-- Theme Switcher -->
       <button
         @click="toggleTheme"
@@ -63,5 +111,11 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- Active Alerts Modal -->
+    <ActiveAlertsModal
+      :open="showAlertModal"
+      @close="showAlertModal = false"
+    />
   </header>
 </template>

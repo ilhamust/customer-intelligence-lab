@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Alerts\UrgentAlertController;
 use App\Http\Controllers\Bot\ConversationController;
 use App\Http\Controllers\Bot\CustomerController;
 use App\Http\Controllers\Bot\TicketController;
@@ -68,5 +69,13 @@ Route::prefix('v1')->group(function () {
         Route::put('/{id}', [StationStaffController::class, 'update'])->name('staff.update');
         Route::delete('/{id}', [StationStaffController::class, 'destroy'])->name('staff.destroy');
         Route::patch('/{id}/toggle-duty', [StationStaffController::class, 'toggleDuty'])->name('staff.toggle-duty');
+    });
+
+    // Urgent Emergency Alerts & Incident Monitoring
+    Route::prefix('alerts')->group(function () {
+        Route::get('/', [UrgentAlertController::class, 'index'])->name('alerts.index');
+        Route::get('/active', [UrgentAlertController::class, 'active'])->name('alerts.active');
+        Route::post('/{id}/acknowledge', [UrgentAlertController::class, 'acknowledge'])->name('alerts.acknowledge');
+        Route::post('/{id}/resolve', [UrgentAlertController::class, 'resolve'])->name('alerts.resolve');
     });
 });

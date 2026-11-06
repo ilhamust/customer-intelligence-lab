@@ -98,6 +98,12 @@ const menus = [
     icon: 'ticket',
   },
   {
+    name: 'Staff & Alert',
+    to: '/app/staff',
+    disabled: false,
+    icon: 'shield-alert',
+  },
+  {
     name: 'Alerts',
     to: '/app/alerts',
     disabled: true,
@@ -218,6 +224,13 @@ const isActive = (to) => computed(() => route.path.startsWith(to)).value
           <svg v-else-if="menu.icon === 'ticket'" xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
             <path d="M13 5v2" /><path d="M13 17v2" /><path d="M13 11v2" />
+          </svg>
+
+          <!-- Shield Alert icon for Staff & Alert 24/7 -->
+          <svg v-else-if="menu.icon === 'shield-alert'" xmlns="http://www.w3.org/2000/svg" class="w-4.5 h-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
 
           <!-- Bell icon -->

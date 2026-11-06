@@ -26,6 +26,11 @@ export default [
         name: 'Tickets',
         component: () => import('@/pages/app/tickets/TicketListPage.vue'),
       },
+      {
+        path: 'staff',
+        name: 'Staff',
+        component: () => import('@/pages/app/staff/StaffListPage.vue'),
+      },
     ],
   },
 ]
