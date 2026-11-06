@@ -37,9 +37,11 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
      * Konfigurasi urutan Provider AI untuk Automatic Failover.
      *
      * Alur Failover:
-     * 1. Utama: Google Gemini (gemini-2.5-flash / gemini-2.0-flash)
-     * 2. Cadangan 1: Groq Cloud (llama-3.3-70b-versatile - ultra low latency)
-     * 3. Cadangan 2: OpenAI (gpt-4o-mini)
+     * 1. Utama: Google Gemini (gemini-3.8-flash)
+     * 2. Cadangan 1: Groq Cloud (openai/gpt-oss-120b - ultra low latency)
+     * 3. Cadangan 2: OpenRouter (openai/gpt-oss-20b - multi-model hub dengan balance aktif)
+     * 4. Cadangan 3: Cohere (command-r-plus-08-2024 - enterprise RAG & instruction following)
+     * 5. Cadangan 4: AionLabs (aion-labs/aion-2.0 - safety net OpenAI-compatible)
      *
      * Jika provider utama mengalami HTTP 429 (Rate Limit) atau error server (5xx),
      * Laravel AI SDK secara otomatis mengalihkan request ke provider berikutnya.
@@ -50,22 +52,27 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
 
         // Google Gemini (Provider Utama)
         if (config('ai.providers.gemini.key')) {
-            $chain['gemini'] = env('AI_GEMINI_MODEL', null);
+            $chain['gemini'] = env('AI_GEMINI_MODEL', 'gemini-3.8-flash');
         }
 
-        // Groq (Cadangan 1)
+        // Groq (Cadangan 1: Ultra Low Latency)
         if (config('ai.providers.groq.key')) {
-            $chain['groq'] = env('AI_GROQ_MODEL', null);
+            $chain['groq'] = env('AI_GROQ_MODEL', 'openai/gpt-oss-120b');
         }
 
-        // Ollama (hanya jika remote Ollama host dikonfigurasi)
-        if (config('ai.providers.ollama.key') && env('OLLAMA_URL') && env('OLLAMA_URL') !== 'http://localhost:11434') {
-            $chain['ollama'] = env('AI_OLLAMA_MODEL', null);
+        // OpenRouter (Cadangan 2: Resilient Multi-model Hub)
+        if (config('ai.providers.openrouter.key')) {
+            $chain['openrouter'] = env('AI_OPENROUTER_MODEL', 'openai/gpt-oss-20b');
         }
 
-        // OpenAI (Cadangan 2)
-        if (config('ai.providers.openai.key')) {
-            $chain['openai'] = env('AI_OPENAI_MODEL', 'gpt-4o-mini');
+        // Cohere (Cadangan 3: Enterprise RAG)
+        if (config('ai.providers.cohere.key')) {
+            $chain['cohere'] = env('AI_COHERE_MODEL', 'command-r-plus-08-2024');
+        }
+
+        // AionLabs (Cadangan 4: Safety Net)
+        if (config('ai.providers.aionlabs.key')) {
+            $chain['aionlabs'] = env('AI_AIONLABS_MODEL', 'aion-labs/aion-2.0');
         }
 
         return ! empty($chain) ? $chain : [config('ai.default', 'gemini')];

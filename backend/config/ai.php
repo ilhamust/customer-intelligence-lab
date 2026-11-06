@@ -52,6 +52,12 @@ return [
     */
 
     'providers' => [
+        'aionlabs' => [
+            'driver' => 'openai-compatible',
+            'url' => env('AIONLABS_URL', 'https://api.aionlabs.ai/v1'),
+            'key' => env('AIONLABS_API_KEY'),
+        ],
+
         'anthropic' => [
             'driver' => 'anthropic',
             'key' => env('ANTHROPIC_API_KEY'),
