@@ -31,6 +31,11 @@ export default [
         name: 'Staff',
         component: () => import('@/pages/app/staff/StaffListPage.vue'),
       },
+      {
+        path: 'charging',
+        name: 'ChargingTransactions',
+        component: () => import('@/pages/app/charging/ChargingListPage.vue'),
+      },
     ],
   },
 ]

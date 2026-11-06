@@ -10,6 +10,7 @@ export const endpoint = {
   conversations: '/api/v1/conversations',
   knowledge: '/api/v1/knowledge-articles',
   dashboard: '/api/v1/dashboard',
+  charging: '/api/v1/charging',
   staff: '/api/v1/staff',
   simulator: '/api/v1/sim/messages',
   whatsapp: '/api/v1/whatsapp',

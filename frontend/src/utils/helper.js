@@ -100,3 +100,31 @@ export const formatDateTime = (timestamp) => {
   return `${month} ${day}, ${year}, ${hours}:${minutes} ${ampm}`
 }
 
+/**
+ * Format nominal Rupiah (misal: "Rp 70.000")
+ * @param {number|string} amount
+ * @returns {string}
+ */
+export const formatRupiah = (amount) => {
+  if (amount === null || amount === undefined || isNaN(Number(amount))) return 'Rp 0'
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(Number(amount))
+}
+
+/**
+ * Format angka numerik dengan desimal id-ID (misal: "20,50")
+ * @param {number|string} num
+ * @param {number} decimals
+ * @returns {string}
+ */
+export const formatNumber = (num, decimals = 2) => {
+  if (num === null || num === undefined || isNaN(Number(num))) return '0'
+  return new Intl.NumberFormat('id-ID', {
+    maximumFractionDigits: decimals,
+  }).format(Number(num))
+}
+
+
