@@ -16,7 +16,7 @@ const props = defineProps({
   },
 })
 
-defineEmits(['close'])
+const emit = defineEmits(['close'])
 
 const router = useRouter()
 
@@ -24,6 +24,7 @@ const isMember = computed(() => !!props.transaction?.customer_id)
 
 const handleOpenChat = (phone) => {
   if (!phone) return
+  emit('close')
   router.push({ path: '/app/conversations', query: { search: phone } })
 }
 </script>
@@ -98,20 +99,9 @@ const handleOpenChat = (phone) => {
 
               <div>
                 <span class="text-[10px] text-base-content/50 block">Nomor WhatsApp</span>
-                <a
-                  v-if="transaction.phone"
-                  :href="`https://wa.me/${transaction.phone}`"
-                  target="_blank"
-                  class="font-mono text-primary font-semibold hover:underline inline-flex items-center gap-1"
-                >
-                  {{ formatPhone(transaction.phone) }}
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-success shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    <polyline points="15 3 21 3 21 9" />
-                    <line x1="10" y1="14" x2="21" y2="3" />
-                  </svg>
-                </a>
-                <span v-else class="text-base-content/40">-</span>
+                <span class="font-mono font-medium text-sm">
+                  {{ formatPhone(transaction.phone) || '-' }}
+                </span>
               </div>
 
               <div>
@@ -223,17 +213,19 @@ const handleOpenChat = (phone) => {
         <!-- Modal Footer Actions -->
         <div class="flex items-center justify-between pt-3 border-t border-base-300">
           <div>
-            <button
+            <BaseButton
               v-if="transaction.phone"
               type="button"
+              variant="primary"
+              size="sm"
+              class="gap-1.5"
               @click="handleOpenChat(transaction.phone)"
-              class="btn btn-ghost btn-xs text-primary font-semibold gap-1"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
               Buka Chat Pelanggan
-            </button>
+            </BaseButton>
           </div>
 
           <BaseButton

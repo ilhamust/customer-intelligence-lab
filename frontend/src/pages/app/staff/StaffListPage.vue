@@ -128,6 +128,16 @@ const getRoleBadge = (role) => {
   }
 }
 
+const handleCopyPhone = async (phone) => {
+  if (!phone) return
+  try {
+    await navigator.clipboard.writeText(phone)
+    notify.success('Nomor telepon disalin ke clipboard')
+  } catch {
+    notify.error('Gagal menyalin nomor')
+  }
+}
+
 const formatPhoneDisplay = (phone) => {
   if (!phone) return '-'
   if (phone.startsWith('62')) {
@@ -398,19 +408,22 @@ const formatPhoneDisplay = (phone) => {
 
                 <!-- Nomor WA -->
                 <td class="py-3.5 px-4 font-mono">
-                  <a
-                    :href="`https://wa.me/${staff.phone}`"
-                    target="_blank"
-                    class="link link-hover text-primary font-semibold flex items-center gap-1.5"
-                    title="Kirim pesan WhatsApp langsung"
-                  >
-                    <span>{{ formatPhoneDisplay(staff.phone) }}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-success shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
-                  </a>
+                  <div class="inline-flex items-center gap-2">
+                    <span class="font-semibold text-base-content select-all">
+                      {{ formatPhoneDisplay(staff.phone) }}
+                    </span>
+                    <button
+                      type="button"
+                      @click="handleCopyPhone(staff.phone)"
+                      class="btn btn-ghost btn-xs btn-circle text-base-content/40 hover:text-primary"
+                      title="Salin nomor WhatsApp"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                        <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                      </svg>
+                    </button>
+                  </div>
                 </td>
 
                 <!-- Peran -->
