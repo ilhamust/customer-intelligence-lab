@@ -3,10 +3,16 @@
 use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+// Jadwal harian deteksi inaktivitas pelanggan & pengiriman retensi pukul 09:00 WITA
+Schedule::command('customers:detect-inactive')
+    ->dailyAt('09:00')
+    ->timezone('Asia/Makassar');
 
 Artisan::command('whatsapp:test', function (WhatsappGatewayService $gateway) {
     $this->info('Testing GOWA status...');

@@ -63,6 +63,7 @@ class CustomerController extends Controller
             $summary = [
                 'total_customers' => Customer::count(),
                 'active_customers' => Customer::where('status', 'active')->count(),
+                'inactive_customers' => Customer::where('status', 'inactive')->count(),
                 'total_points' => (int) Customer::sum('points_balance'),
                 'ride_hailing_count' => Customer::where('driver_type', 'ride-hailing')->count(),
                 'private_count' => Customer::where('driver_type', 'private')->count(),
@@ -178,6 +179,31 @@ class CustomerController extends Controller
             return $this->handleNotFound($e, $ctx);
         } catch (Exception $e) {
             return $this->handleUnexpected($e, $ctx, 'Failed to retrieve customer ledger.');
+        }
+    }
+
+    /**
+     * Trigger deteksi pelanggan inaktif (>= 8 hari tidak charging) & jadwalkan pesan retensi.
+     */
+    public function detectInactive(Request $request): DataResource|ErrorResource|InternalErrorResource
+    {
+        $ctx = __METHOD__;
+
+        try {
+            $days = (int) $request->input('days', 8);
+            if ($days < 1) {
+                $days = 8;
+            }
+
+            $result = \App\Console\Commands\DetectInactiveCustomersCommand::runDetection($days);
+
+            return $this->respondWithData($result, "Deteksi inaktivitas selesai ({$result['detected_count']} terdeteksi, {$result['retention_scheduled_count']} pesan retensi dijadwalkan).");
+        } catch (BadRequestException $e) {
+            return $this->handleBadRequest($e, $ctx);
+        } catch (InternalServerException $e) {
+            return $this->handleInternal($e, $ctx);
+        } catch (Exception $e) {
+            return $this->handleUnexpected($e, $ctx, 'Gagal menjalankan deteksi pelanggan inaktif.');
         }
     }
 }

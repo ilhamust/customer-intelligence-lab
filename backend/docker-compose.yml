@@ -67,7 +67,7 @@ services:
             GOWA_BASE_URL: 'http://gowa:3000'
             REVERB_HOST: 'reverb'
         working_dir: /var/www/html
-        command: php artisan queue:work --tries=3 --timeout=120
+        command: sh -c "php artisan schedule:work & php artisan queue:work --tries=3 --timeout=120"
         volumes:
             - '.:/var/www/html'
             - './docker/php/conf.d/opcache.ini:/usr/local/etc/php/conf.d/opcache.ini'

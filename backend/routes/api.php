@@ -31,6 +31,7 @@ Route::prefix('v1')->group(function () {
     // Customers Management for Frontend Back Office
     Route::prefix('customers')->group(function () {
         Route::get('/', [CustomerController::class, 'index'])->name('customers.index');
+        Route::post('/detect-inactive', [CustomerController::class, 'detectInactive'])->name('customers.detect-inactive');
         Route::get('/{id}', [CustomerController::class, 'show'])->name('customers.show');
         Route::get('/{id}/points', [CustomerController::class, 'points'])->name('customers.points');
         Route::get('/{id}/ledger', [CustomerController::class, 'ledger'])->name('customers.ledger');
