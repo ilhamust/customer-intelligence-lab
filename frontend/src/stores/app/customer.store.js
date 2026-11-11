@@ -21,6 +21,7 @@ export const useCustomerStore = defineStore('customer', () => {
   const summary = ref({
     total_customers: 0,
     active_customers: 0,
+    inactive_customers: 0,
     total_points: 0,
     ride_hailing_count: 0,
     private_count: 0,
@@ -118,6 +119,19 @@ export const useCustomerStore = defineStore('customer', () => {
     return a$fetchList()
   }
 
+  const a$detectInactive = async (days = 8) => {
+    loading.value = true
+    try {
+      const res = await s$customer.detectInactive({ days })
+      await a$fetchList()
+      return res?.data ?? res ?? {}
+    } catch (e) {
+      throw e?.message ?? e
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     g$loading,
     g$detailLoading,
@@ -130,6 +144,7 @@ export const useCustomerStore = defineStore('customer', () => {
     a$fetchList,
     a$fetchDetail,
     a$fetchLedger,
+    a$detectInactive,
     a$setFilter,
     a$setPage,
     a$resetFilter,

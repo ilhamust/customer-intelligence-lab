@@ -174,11 +174,47 @@ const handleNavigateToChat = (conversationId) => {
                     {{ p$customer.g$activeCustomer.primary_route || 'Not specified' }}
                   </p>
                 </div>
+
+                <div class="p-3.5 rounded-xl border border-base-300 bg-base-200/50 space-y-1">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-base-content/50">Last Charging</span>
+                  <p class="text-xs font-semibold text-base-content">
+                    {{ p$customer.g$activeCustomer.last_charged_at ? formatDateTime(p$customer.g$activeCustomer.last_charged_at) : 'No charging record yet' }}
+                  </p>
+                </div>
+
+                <div class="p-3.5 rounded-xl border border-base-300 bg-base-200/50 space-y-1">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-base-content/50">Marketing Consent</span>
+                  <div class="flex items-center gap-1.5 pt-0.5">
+                    <BaseBadge
+                      :variant="p$customer.g$activeCustomer.is_marketing_consent ? 'success' : 'neutral'"
+                      pill
+                      size="xs"
+                    >
+                      {{ p$customer.g$activeCustomer.is_marketing_consent ? 'Subscribed' : 'Opted Out' }}
+                    </BaseBadge>
+                    <span v-if="p$customer.g$activeCustomer.opted_out_at" class="text-[10px] text-base-content/50">
+                      ({{ formatDateTime(p$customer.g$activeCustomer.opted_out_at) }})
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <!-- Registration Metadata -->
-              <div class="p-4 rounded-xl border border-base-300 bg-base-100 flex items-center justify-between text-xs text-base-content/60">
-                <span>Account Status: <strong class="text-base-content uppercase">{{ p$customer.g$activeCustomer.status }}</strong></span>
+              <div class="p-4 rounded-xl border border-base-300 bg-base-100 flex flex-wrap items-center justify-between gap-2 text-xs text-base-content/60">
+                <div class="flex items-center gap-2">
+                  <span>Status:</span>
+                  <BaseBadge
+                    :variant="p$customer.g$activeCustomer.status === 'active' ? 'success' : (p$customer.g$activeCustomer.status === 'inactive' ? 'warning' : 'neutral')"
+                    pill
+                    size="xs"
+                    class="font-bold uppercase"
+                  >
+                    {{ p$customer.g$activeCustomer.status }}
+                  </BaseBadge>
+                  <span v-if="p$customer.g$activeCustomer.inactive_detected_at" class="text-[10px] text-amber-500">
+                    (Inactive since {{ formatDateTime(p$customer.g$activeCustomer.inactive_detected_at) }})
+                  </span>
+                </div>
                 <span>Registered: <strong class="text-base-content">{{ formatDateTime(p$customer.g$activeCustomer.created_at) }}</strong></span>
               </div>
             </div>

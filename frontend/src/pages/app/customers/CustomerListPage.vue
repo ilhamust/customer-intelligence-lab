@@ -7,6 +7,7 @@ import CustomerDetailModal from './components/CustomerDetailModal.vue'
 
 const p$customer = useCustomerStore()
 const searchInput = ref('')
+const detecting = ref(false)
 
 const showDetailModal = ref(false)
 const selectedCustomerId = ref(null)
@@ -31,6 +32,18 @@ const fetchCustomers = async () => {
     await p$customer.a$fetchList()
   } catch (e) {
     notify.error(e?.message ?? e ?? 'Failed to load customers')
+  }
+}
+
+const handleDetectInactive = async () => {
+  detecting.value = true
+  try {
+    const res = await p$customer.a$detectInactive()
+    notify.success(res?.message || 'Inactivity check completed successfully')
+  } catch (e) {
+    notify.error(e?.message ?? e ?? 'Failed to check inactive customers')
+  } finally {
+    detecting.value = false
   }
 }
 
@@ -88,6 +101,27 @@ const handlePageChange = (page) => {
           </svg>
         </div>
 
+        <!-- Check Inactive Button -->
+        <button
+          type="button"
+          @click="handleDetectInactive"
+          :disabled="p$customer.g$loading || detecting"
+          class="btn btn-sm btn-outline gap-1.5 rounded-full text-xs font-semibold"
+          title="Run inactivity check & schedule retention messages"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" :class="{ 'animate-spin': detecting }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v4" />
+            <path d="m16.2 7.8 2.9-2.9" />
+            <path d="M18 12h4" />
+            <path d="m16.2 16.2 2.9 2.9" />
+            <path d="M12 18v4" />
+            <path d="m4.9 19.1 2.9-2.9" />
+            <path d="M2 12h4" />
+            <path d="m4.9 4.9 2.9 2.9" />
+          </svg>
+          <span>{{ detecting ? 'Checking...' : 'Check Inactive' }}</span>
+        </button>
+
         <!-- Reload Button -->
         <button
           type="button"
@@ -107,7 +141,7 @@ const handlePageChange = (page) => {
     </header>
 
     <!-- ─── Metric KPI Cards ───────────────────────────────────── -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 shrink-0">
       <BaseStat
         label="Total Customers"
         :value="p$customer.g$summary.total_customers"
@@ -132,6 +166,19 @@ const handlePageChange = (page) => {
           <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
             <polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+        </template>
+      </BaseStat>
+
+      <BaseStat
+        label="Inactive Customers"
+        :value="p$customer.g$summary.inactive_customers || 0"
+        subtext=">= 8 days no charging"
+      >
+        <template #icon>
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
           </svg>
         </template>
       </BaseStat>
@@ -225,6 +272,14 @@ const handlePageChange = (page) => {
           >
             Active
           </button>
+          <button
+            type="button"
+            @click="handleFilterStatus('inactive')"
+            class="px-3 py-1 rounded-full font-semibold transition-colors"
+            :class="p$customer.g$filters.status === 'inactive' ? 'bg-amber-600 text-white shadow-xs' : 'text-base-content/60 hover:bg-base-200'"
+          >
+            Inactive
+          </button>
         </div>
       </div>
 
@@ -294,13 +349,22 @@ const handlePageChange = (page) => {
         <template #cell-status="{ row }">
           <div class="flex justify-center">
             <BaseBadge
-              :variant="row.status === 'active' ? 'neutral' : 'neutral'"
+              variant="neutral"
               pill
               size="xs"
               class="gap-1 font-semibold"
             >
-              <span class="w-1.5 h-1.5 rounded-full" :class="row.status === 'active' ? 'bg-emerald-500' : 'bg-base-content/30'"></span>
-              <span class="capitalize">{{ row.status }}</span>
+              <span
+                class="w-1.5 h-1.5 rounded-full"
+                :class="{
+                  'bg-emerald-500': row.status === 'active',
+                  'bg-amber-500 animate-pulse': row.status === 'inactive',
+                  'bg-base-content/30': row.status !== 'active' && row.status !== 'inactive'
+                }"
+              ></span>
+              <span class="capitalize" :class="{ 'text-amber-500 font-bold': row.status === 'inactive' }">
+                {{ row.status }}
+              </span>
             </BaseBadge>
           </div>
         </template>
