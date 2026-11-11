@@ -26,6 +26,12 @@ class Customer extends Model
         'primary_route',
         'points_balance',
         'status',
+        'is_marketing_consent',
+        'consented_at',
+        'opted_out_at',
+        'last_charged_at',
+        'inactive_detected_at',
+        'last_retention_sent_at',
         'meta',
     ];
 
@@ -38,6 +44,12 @@ class Customer extends Model
     {
         return [
             'points_balance' => 'integer',
+            'is_marketing_consent' => 'boolean',
+            'consented_at' => 'datetime',
+            'opted_out_at' => 'datetime',
+            'last_charged_at' => 'datetime',
+            'inactive_detected_at' => 'datetime',
+            'last_retention_sent_at' => 'datetime',
             'meta' => 'array',
         ];
     }
