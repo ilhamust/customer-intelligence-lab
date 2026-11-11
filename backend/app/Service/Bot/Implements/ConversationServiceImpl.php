@@ -639,6 +639,93 @@ class ConversationServiceImpl implements ConversationService
                 return $message;
             }
 
+            $cleanText = trim($text);
+
+            // 1. HANDLER CONSENT OPT-OUT: UNREG (B3)
+            if (preg_match('/\bUNREG\b/i', $cleanText)) {
+                if ($customer) {
+                    $customer->update([
+                        'is_marketing_consent' => false,
+                        'opted_out_at' => now(),
+                    ]);
+                }
+
+                $optOutReply = "Permintaan Anda telah kami catat. Anda telah *berhenti menerima pesan promosi & penawaran* Jarvis EV.\n\nKapan pun Anda ingin mengaktifkan kembali, cukup ketik *LANGGANAN* di obrolan ini.\nKetik *MENU* untuk melihat panduan bantuan lainnya. Terima kasih! 🙏";
+                $this->sendMessage($conversation->id, $optOutReply, 'bot');
+
+                $this->logInfo($m, 'Customer opted out from marketing messages via UNREG keyword', [
+                    'conversation_id' => $conversation->id,
+                    'customer_id' => $customer?->id,
+                ]);
+
+                return $message;
+            }
+
+            // 2. HANDLER CONSENT OPT-IN: LANGGANAN (B3)
+            if (preg_match('/\bLANGGANAN\b/i', $cleanText)) {
+                if ($customer) {
+                    $customer->update([
+                        'is_marketing_consent' => true,
+                        'consented_at' => now(),
+                        'opted_out_at' => null,
+                    ]);
+                }
+
+                $optInReply = "Terima kasih! Notifikasi benefit, Jarvis Points, dan penawaran spesial Jarvis EV Anda telah *diaktifkan kembali* 🎉\n\nKetik *MENU* untuk melihat panduan layanan dan bantuan lainnya.";
+                $this->sendMessage($conversation->id, $optInReply, 'bot');
+
+                $this->logInfo($m, 'Customer opted in to marketing messages via LANGGANAN keyword', [
+                    'conversation_id' => $conversation->id,
+                    'customer_id' => $customer?->id,
+                ]);
+
+                return $message;
+            }
+
+            // 3. HANDLER MENU BANTUAN DETERMINISTIK: MENU (B6)
+            if (preg_match('/\bMENU\b/i', $cleanText)) {
+                $customerName = $customer?->name ?: ($conversation->name ?: 'Pelanggan');
+                $menuReply = "Halo Kak *{$customerName}*! Berikut panduan perintah & menu bantuan *Jarvis EV Charging*: ⚡\n\n" .
+                    "📋 *Daftar Perintah (Command):*\n" .
+                    "• *MENU* : Menampilkan kembali pesan panduan & menu bantuan ini\n" .
+                    "• *UNREG* : Berhenti berlangganan / berhenti menerima pesan promo & penawaran\n" .
+                    "• *LANGGANAN* : Mengaktifkan kembali penerimaan pesan promo & benefit\n" .
+                    "• *CS* : Menghubungkan langsung dengan Customer Service jika ada kendala\n\n" .
+                    "💡 *Pertanyaan Cepat:*\n" .
+                    "Anda juga bisa langsung mengetik pertanyaan, misalnya:\n" .
+                    "• _\"Poin saya berapa?\"_ untuk cek saldo Jarvis Points\n" .
+                    "• _\"Jam buka stasiun?\"_ (Sunset Road beroperasi 24 Jam)\n" .
+                    "• _\"Berapa tarif per kWh?\"_ atau fasilitas yang tersedia";
+
+                $this->sendMessage($conversation->id, $menuReply, 'bot');
+
+                $this->logInfo($m, 'Sent deterministic menu guide reply via MENU keyword', [
+                    'conversation_id' => $conversation->id,
+                    'customer_id' => $customer?->id,
+                ]);
+
+                return $message;
+            }
+
+            // 3. HANDLER PESAN MEDIA NON-TEKS (B10)
+            $isMedia = ! empty($data['media_type'])
+                || (! empty($data['type']) && in_array(strtolower((string) $data['type']), ['image', 'audio', 'voice', 'video', 'sticker', 'document', 'location', 'ptt'], true))
+                || ! empty($data['mimetype'])
+                || ! empty($data['file_url'])
+                || ! empty($data['url']);
+
+            if ($cleanText === '' && $isMedia) {
+                $mediaReply = "Halo Kak! Bot asisten Jarvis saat ini hanya dapat membaca pesan teks 🙏\n\nJika Kakak memiliki kendala pengisian daya atau pertanyaan seputar fasilitas, mohon ketik pesannya secara tertulis ya Kak, atau ketik *CS* agar kami hubungkan ke petugas.";
+                $this->sendMessage($conversation->id, $mediaReply, 'bot');
+
+                $this->logInfo($m, 'Sent deterministic non-text media notice', [
+                    'conversation_id' => $conversation->id,
+                    'media_meta' => $data['media_type'] ?? ($data['type'] ?? 'unknown'),
+                ]);
+
+                return $message;
+            }
+
             // JIKA BELUM TERDAFTAR: Jalankan alur registrasi pelanggan baru
             if (! $customer) {
                 $step = $conversation->registration_step ?? 'unregistered';

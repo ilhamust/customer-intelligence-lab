@@ -119,6 +119,15 @@ class ChargingTransactionController extends Controller
                     $this->loyaltyService->awardPoints($customer, $pointsAwarded, $description, $trx->id);
                 }
 
+                // Perbarui waktu transaksi terakhir & pulihkan status pelanggan jika sebelumnya inactive
+                if ($customer) {
+                    $customer->update([
+                        'last_charged_at' => $trx->finished_at,
+                        'status' => 'active',
+                        'inactive_detected_at' => null,
+                    ]);
+                }
+
                 return $trx->load(['customer', 'pointsLedger']);
             });
 

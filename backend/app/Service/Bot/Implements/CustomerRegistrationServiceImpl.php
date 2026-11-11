@@ -147,6 +147,8 @@ TXT;
                 'primary_route' => $data['primary_route'] ?? '-',
                 'points_balance' => 0,
                 'status' => 'active',
+                'is_marketing_consent' => true,
+                'consented_at' => now(),
             ]);
 
             $this->logInfo($m, 'New customer registered successfully', [
@@ -169,6 +171,7 @@ TXT;
 
         $claimedPointsTotal = 0;
         $claimedCount = 0;
+        $latestFinishedAt = null;
 
         foreach ($unlinkedTransactions as $trx) {
             $points = $this->loyaltyService->calculatePoints((float) $trx->kwh, (float) $trx->amount);
@@ -184,6 +187,12 @@ TXT;
                 $claimedPointsTotal += $points;
             }
 
+            if ($trx->finished_at) {
+                if ($latestFinishedAt === null || $trx->finished_at->greaterThan($latestFinishedAt)) {
+                    $latestFinishedAt = $trx->finished_at;
+                }
+            }
+
             $claimedCount++;
         }
 
@@ -193,6 +202,9 @@ TXT;
                 'claimed_count' => $claimedCount,
                 'claimed_points_total' => $claimedPointsTotal,
             ]);
+            if ($latestFinishedAt) {
+                $customer->update(['last_charged_at' => $latestFinishedAt]);
+            }
             $customer->refresh();
         }
 
@@ -261,6 +273,8 @@ Berikut adalah akses *Wi-Fi Gratis 30 Menit* Anda di stasiun Jarvis:
 • Berlaku s.d: *{$expiry}*
 
 Kini Anda dapat langsung melakukan pengisian daya kendaraan listrik Anda dan mengumpulkan *Jarvis Points* di setiap sesi pengisian! ⚡
+
+_Ketik *MENU* untuk panduan bantuan. Ketik *UNREG* kapan saja jika ingin berhenti menerima pesan promo._
 
 Ada yang bisa kami bantu seputar stasiun charging hari ini?
 TXT;

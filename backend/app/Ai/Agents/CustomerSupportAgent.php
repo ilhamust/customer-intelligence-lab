@@ -4,6 +4,7 @@ namespace App\Ai\Agents;
 
 use App\Ai\Knowledge\JarvisKnowledgeBase;
 use App\Ai\Tools\CreateSupportTicketTool;
+use App\Ai\Tools\GetCustomerPointsHistoryTool;
 use App\Models\Bot\Conversation;
 use App\Models\Bot\Message as DbMessage;
 use Laravel\Ai\Contracts\Agent;
@@ -135,7 +136,10 @@ PANDUAN KOMUNIKASI & INTERAKSI:
      * Coret / Strikethrough: gunakan satu tilde ~teks~.
    - DILARANG KERAS menggunakan format markdown seperti header (###, ##), tabel markdown (|---|), atau dua bintang (**).
    - Gunakan tanda minus (- ) atau bullet (• ) untuk daftar/poin.
-5. Buat jawaban ringkas, solutif, to-the-point, dan ramah untuk dibaca di WhatsApp.
+5. INFORMASI RIWAYAT / HISTORI POIN PELANGGAN:
+   - Jika pelanggan menanyakan riwayat, histori perolehan poin, atau rincian transaksi pengisian daya terdahulu miliknya (misal: "Kemarin saya dapat poin dari mana?", "Bisa lihat histori poin saya?"), Anda WAJIB memanggil tool `get_customer_points_history`.
+   - Gunakan data mutasi riil yang dikembalikan tool tersebut untuk memberikan penjelasan yang transparan dan akurat tanpa mengarang data.
+6. Buat jawaban ringkas, solutif, to-the-point, dan ramah untuk dibaca di WhatsApp.
 
 === PROTOKOL ESKALASI KE CUSTOMER SERVICE (NEED HUMAN) ===
 Sebagai asisten Jarvis, kenali dengan cermat 3 kasus spesifik yang WAJIB dieskalasikan ke Customer Service manusia dan dibuatkan tiket antrean:
@@ -204,6 +208,7 @@ PROMPT;
     {
         return [
             new CreateSupportTicketTool($this->conversation),
+            new GetCustomerPointsHistoryTool($this->conversation),
         ];
     }
 
