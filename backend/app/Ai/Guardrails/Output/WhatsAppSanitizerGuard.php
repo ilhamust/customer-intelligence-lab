@@ -54,6 +54,9 @@ class WhatsAppSanitizerGuard implements OutputGuardrailInterface
      */
     public static function sanitize(string $text): string
     {
+        // Normalisasi spasi Unicode khusus (seperti narrow no-break space \u202F atau \u00A0) ke spasi standar
+        $text = (string) preg_replace('/[\x{00A0}\x{202F}\x{200B}]+/u', ' ', $text);
+
         // Konversi tabel Markdown menjadi butir ringkas WhatsApp (bullet points)
         $text = static::convertMarkdownTables($text);
 

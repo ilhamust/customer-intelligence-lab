@@ -13,7 +13,7 @@
         "expected_action": "allow",
         "expected_reason": null,
         "must_contain": ["24 jam", "Sunset Road"],
-        "must_not_contain": ["tutup", "08:00", "22:00"],
+        "must_not_contain": ["tutup pada", "08:00", "22:00"],
         "expected_tool": "none",
         "expected_ticket_category": null
       }

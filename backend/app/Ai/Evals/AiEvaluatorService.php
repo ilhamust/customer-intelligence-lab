@@ -231,6 +231,8 @@ class AiEvaluatorService
             // Siapkan mock Conversation
             /** @var Conversation $conversation */
             $conversation = Conversation::create([
+                'device_id' => 'default',
+                'chat_jid' => $customer->phone.'@s.whatsapp.net',
                 'phone' => $customer->phone,
                 'name' => $customer->name,
                 'handler' => 'ai',
@@ -286,16 +288,26 @@ class AiEvaluatorService
                 }
             }
 
-            // 2. Verifikasi kata kunci wajib (must_contain)
+            // 2. Verifikasi kata kunci wajib (must_contain) dengan normalisasi spasi Unicode & variasi tanda hubung (misal: Wi-Fi vs Wifi)
+            $normalizedReply = (string) preg_replace('/[\p{Z}\s]+/u', ' ', mb_strtolower($actualReplyText));
+            $normalizedReplyNoHyphen = str_replace('-', '', $normalizedReply);
+
             foreach ($testCase->getMustContain() as $term) {
-                if (! str_contains(mb_strtolower($actualReplyText), mb_strtolower($term))) {
+                $normalizedTerm = (string) preg_replace('/[\p{Z}\s]+/u', ' ', mb_strtolower($term));
+                $normalizedTermNoHyphen = str_replace('-', '', $normalizedTerm);
+
+                $matched = str_contains($normalizedReply, $normalizedTerm)
+                    || str_contains($normalizedReplyNoHyphen, $normalizedTermNoHyphen);
+
+                if (! $matched) {
                     $failures[] = "Respon AI tidak memuat kata kunci wajib: '{$term}'";
                 }
             }
 
             // 3. Verifikasi kata terlarang (must_not_contain)
             foreach ($testCase->getMustNotContain() as $term) {
-                if (str_contains(mb_strtolower($actualReplyText), mb_strtolower($term))) {
+                $normalizedTerm = (string) preg_replace('/[\p{Z}\s]+/u', ' ', mb_strtolower($term));
+                if (str_contains($normalizedReply, $normalizedTerm)) {
                     $failures[] = "Respon AI memuat kata terlarang: '{$term}'";
                 }
             }
