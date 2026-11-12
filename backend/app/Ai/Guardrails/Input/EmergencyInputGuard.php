@@ -24,7 +24,7 @@ class EmergencyInputGuard implements InputGuardrailInterface
         'safety_hazard' => [
             '/\b(?:korslet(?:ing)?|konslet(?:ing)?|meledak|ledakan|terbakar|kebakaran|berasap|nyetrum|kesetrum|setrum|sengatan)\b/ui',
             '/(?:charger\s+berasap|keluar\s+(?:api|asap)|muncul\s+(?:api|asap)|ada\s+(?:api|asap)|percikan\s+api)/ui',
-            '/\b(?:api|asap)\b/ui',
+            '/\b(?:api(?!\s*(?:key|token|endpoint|doc|rest|gateway))|asap)\b/ui',
         ],
         'trapped_cable' => [
             '/(?:kabel\s+macet|colokan\s+nyangkut|konektor\s+nyangkut|tidak\s+bisa\s+dicabut|gak\s+bisa\s+dicabut|ga\s+bisa\s+dicabut)/ui',

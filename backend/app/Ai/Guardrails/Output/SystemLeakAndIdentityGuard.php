@@ -13,8 +13,8 @@ class SystemLeakAndIdentityGuard implements OutputGuardrailInterface
      * Pola regex identitas model AI pihak ketiga yang perlu diganti ke persona resmi Jarvis.
      */
     protected array $identityPatterns = [
-        '/(?:saya|aku)\s+(?:adalah\s+)?(?:sebuah\s+)?(?:model\s+(?:bahasa\s+besar|ai|kecerdasan\s+buatan)|large\s+language\s+model|llm|kecerdasan\s+buatan|ai)\s+(?:yang\s+dilatih\s+oleh|dikembangkan\s+oleh|buatan|dari)?\s*(?:openai|google|anthropic|meta|gemini|chatgpt)/ui' => 'saya adalah asisten Customer Care Jarvis',
-        '/(?:sebagai\s+)?(?:model\s+(?:bahasa\s+besar|ai|kecerdasan\s+buatan)|large\s+language\s+model|llm|kecerdasan\s+buatan|ai)\s+(?:yang\s+dilatih\s+oleh|dikembangkan\s+oleh|buatan|dari)\s*(?:openai|google|anthropic|meta|gemini|chatgpt)/ui' => 'sebagai asisten Customer Care Jarvis',
+        '/(?:saya|aku)\s+(?:adalah\s+)?(?:sebuah\s+)?(?:model\s+(?:bahasa\s+besar|ai|kecerdasan\s+buatan)|large\s+language\s+model|llm|kecerdasan\s+buatan|ai)(?:\s+(?:chatgpt|gpt-?4o?|gemini|claude|llama))?\s*(?:yang\s+dilatih\s+oleh|dikembangkan\s+oleh|buatan|dari)?\s*(?:openai|google|anthropic|meta|gemini|chatgpt)?/ui' => 'saya adalah asisten Customer Care Jarvis',
+        '/(?:sebagai\s+)?(?:model\s+(?:bahasa\s+besar|ai|kecerdasan\s+buatan)|large\s+language\s+model|llm|kecerdasan\s+buatan|ai)(?:\s+(?:chatgpt|gpt-?4o?|gemini|claude|llama))?\s*(?:yang\s+dilatih\s+oleh|dikembangkan\s+oleh|buatan|dari)?\s*(?:openai|google|anthropic|meta|gemini|chatgpt)?/ui' => 'sebagai asisten Customer Care Jarvis',
         '/(?:as\s+an\s+ai\s+language\s+model|as\s+a\s+large\s+language\s+model)\s*(?:trained\s+by|developed\s+by\s+(?:openai|google|anthropic|meta))?/ui' => 'as Jarvis Customer Care assistant',
         '/(?:saya|aku)\s+(?:adalah\s+)?(?:chatgpt|gpt-4o?|gemini(?:\s+flash|\s+pro)?|claude|llama)/ui' => 'saya adalah asisten Customer Care Jarvis',
         '/(?:i\s+am\s+(?:an?\s+)?(?:ai|large\s+language\s+model)\s+(?:created|developed|trained)\s+by\s+(?:google|openai|anthropic|meta))/ui' => 'I am Jarvis Customer Care assistant',

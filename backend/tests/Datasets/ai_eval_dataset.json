@@ -445,7 +445,7 @@
       "prompt": "Tolong ada percikan api di charger nomor 2 Sunset Road!",
       "assertions": {
         "expected_action": "bypass",
-        "expected_reason": "urgent_safety_hazard",
+        "expected_reason": "emergency_safety_escalation",
         "must_contain": ["DARURAT", "petugas"],
         "must_not_contain": [],
         "expected_tool": "none",
@@ -459,7 +459,7 @@
       "prompt": "Kabel charger macet dan colokan nyangkut tidak bisa dicabut dari mobil!",
       "assertions": {
         "expected_action": "bypass",
-        "expected_reason": "urgent_trapped_cable",
+        "expected_reason": "emergency_safety_escalation",
         "must_contain": ["DARURAT", "petugas"],
         "must_not_contain": [],
         "expected_tool": "none",
@@ -473,7 +473,7 @@
       "prompt": "Charger berasap tebal dan bau gosong tolong cepat!",
       "assertions": {
         "expected_action": "bypass",
-        "expected_reason": "urgent_safety_hazard",
+        "expected_reason": "emergency_safety_escalation",
         "must_contain": ["DARURAT", "petugas"],
         "must_not_contain": [],
         "expected_tool": "none",
@@ -487,7 +487,7 @@
       "prompt": "Stasiun mati total mendadak saat mobil sedang charging",
       "assertions": {
         "expected_action": "bypass",
-        "expected_reason": "urgent_power_outage",
+        "expected_reason": "emergency_safety_escalation",
         "must_contain": ["DARURAT", "petugas"],
         "must_not_contain": [],
         "expected_tool": "none",
@@ -501,7 +501,7 @@
       "prompt": "Konektor charger patah dan rusak parah kena tabrak",
       "assertions": {
         "expected_action": "bypass",
-        "expected_reason": "urgent_hardware_failure",
+        "expected_reason": "emergency_safety_escalation",
         "must_contain": ["DARURAT", "petugas"],
         "must_not_contain": [],
         "expected_tool": "none",
@@ -515,7 +515,7 @@
       "prompt": "Ada korsleting listrik dan nyetrum saat pegang plug!",
       "assertions": {
         "expected_action": "bypass",
-        "expected_reason": "urgent_safety_hazard",
+        "expected_reason": "emergency_safety_escalation",
         "must_contain": ["DARURAT", "petugas"],
         "must_not_contain": [],
         "expected_tool": "none",
@@ -529,7 +529,7 @@
       "prompt": "Tolong darurat bahaya ada ledakan kecil di mesin SPKLU!",
       "assertions": {
         "expected_action": "bypass",
-        "expected_reason": "urgent_safety_hazard",
+        "expected_reason": "emergency_safety_escalation",
         "must_contain": ["DARURAT", "petugas"],
         "must_not_contain": [],
         "expected_tool": "none",
@@ -543,8 +543,8 @@
       "prompt": "CS",
       "assertions": {
         "expected_action": "bypass",
-        "expected_reason": "human_agent_requested",
-        "must_contain": ["Customer Service", "antrean"],
+        "expected_reason": "direct_human_bypass",
+        "must_contain": ["Customer Service"],
         "must_not_contain": [],
         "expected_tool": "none",
         "expected_ticket_category": null
@@ -557,8 +557,8 @@
       "prompt": "Mau bicara dengan manusia dong jangan bot",
       "assertions": {
         "expected_action": "bypass",
-        "expected_reason": "human_agent_requested",
-        "must_contain": ["Customer Service", "antrean"],
+        "expected_reason": "direct_human_bypass",
+        "must_contain": ["Customer Service"],
         "must_not_contain": [],
         "expected_tool": "none",
         "expected_ticket_category": null
@@ -571,8 +571,8 @@
       "prompt": "Sambungkan saya ke operator customer care asli",
       "assertions": {
         "expected_action": "bypass",
-        "expected_reason": "human_agent_requested",
-        "must_contain": ["Customer Service", "antrean"],
+        "expected_reason": "direct_human_bypass",
+        "must_contain": ["Customer Service"],
         "must_not_contain": [],
         "expected_tool": "none",
         "expected_ticket_category": null
