@@ -13,7 +13,7 @@ export const getInitials = (name) => {
 }
 
 /**
- * Format waktu ala WhatsApp (misal: "09:42", "Kemarin", "14 Okt")
+ * Format waktu ala WhatsApp berbasis zona WIB (misal: "09:42", "Kemarin", "14 Okt")
  * @param {string|Date} timestamp
  * @returns {string}
  */
@@ -23,33 +23,49 @@ export const formatRelativeTime = (timestamp) => {
   if (isNaN(date.getTime())) return timestamp
 
   const now = new Date()
-  const isToday = date.toDateString() === now.toDateString()
+  const toWibDateString = (d) =>
+    new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d)
+
+  const isToday = toWibDateString(date) === toWibDateString(now)
 
   const yesterday = new Date(now)
   yesterday.setDate(yesterday.getDate() - 1)
-  const isYesterday = date.toDateString() === yesterday.toDateString()
+  const isYesterday = toWibDateString(date) === toWibDateString(yesterday)
 
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  const timeStr = `${hours}:${minutes}`
+  const timeStr = formatTime(date)
 
   if (isToday) return timeStr
-  if (isYesterday) return 'Yesterday'
+  if (isYesterday) return 'Kemarin'
 
-  // If same year
-  const day = date.getDate()
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const month = months[date.getMonth()]
+  const yearFormatter = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+  })
+  const sameYear = yearFormatter.format(date) === yearFormatter.format(now)
 
-  if (date.getFullYear() === now.getFullYear()) {
-    return `${day} ${month}`
+  if (sameYear) {
+    return new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      day: 'numeric',
+      month: 'short',
+    }).format(date)
   }
 
-  return `${day}/${date.getMonth() + 1}/${String(date.getFullYear()).slice(-2)}`
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    day: 'numeric',
+    month: 'numeric',
+    year: '2-digit',
+  }).format(date)
 }
 
 /**
- * Format jam dan menit "HH:mm"
+ * Format jam dan menit WIB "HH:mm"
  * @param {string|Date} timestamp
  * @returns {string}
  */
@@ -57,9 +73,13 @@ export const formatTime = (timestamp) => {
   if (!timestamp) return ''
   const date = new Date(timestamp)
   if (isNaN(date.getTime())) return timestamp
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${hours}:${minutes}`
+
+  return new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date).replace('.', ':')
 }
 
 /**
@@ -77,7 +97,7 @@ export const formatPhone = (phone) => {
 }
 
 /**
- * Format tanggal dan waktu lengkap (misal: "Oct 15, 2026, 2:58 PM")
+ * Format tanggal dan waktu lengkap berbasis WIB (misal: "16 Nov 2026, 17:09 WIB")
  * @param {string|Date} timestamp
  * @returns {string}
  */
@@ -86,18 +106,17 @@ export const formatDateTime = (timestamp) => {
   const date = new Date(timestamp)
   if (isNaN(date.getTime())) return String(timestamp)
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  const month = months[date.getMonth()]
-  const day = date.getDate()
-  const year = date.getFullYear()
+  const formatted = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
 
-  let hours = date.getHours()
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  const ampm = hours >= 12 ? 'PM' : 'AM'
-  hours = hours % 12
-  hours = hours ? hours : 12
-
-  return `${month} ${day}, ${year}, ${hours}:${minutes} ${ampm}`
+  return `${formatted.replace('.', ':')} WIB`
 }
 
 /**

@@ -9,10 +9,10 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Jadwal harian deteksi inaktivitas pelanggan & pengiriman retensi pukul 09:00 WITA
+// Jadwal harian deteksi inaktivitas pelanggan & pengiriman retensi pukul 09:00 WIB
 Schedule::command('customers:detect-inactive')
     ->dailyAt('09:00')
-    ->timezone('Asia/Makassar');
+    ->timezone('Asia/Jakarta');
 
 Artisan::command('whatsapp:test', function (WhatsappGatewayService $gateway) {
     $this->info('Testing GOWA status...');
