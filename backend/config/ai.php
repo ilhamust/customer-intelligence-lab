@@ -13,7 +13,8 @@ return [
     |
     */
 
-    'default' => env('AI_DEFAULT_PROVIDER', 'gemini'),
+    'default' => env('AI_DEFAULT_PROVIDER', 'groq'),
+    'timeout' => (int) env('AI_TIMEOUT', 5),
     'default_for_images' => 'gemini',
     'default_for_audio' => 'openai',
     'default_for_transcription' => 'openai',

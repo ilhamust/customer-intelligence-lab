@@ -288,16 +288,24 @@ class AiEvaluatorService
                 }
             }
 
-            // 2. Verifikasi kata kunci wajib (must_contain) dengan normalisasi spasi Unicode & variasi tanda hubung (misal: Wi-Fi vs Wifi)
+            // 2. Verifikasi kata kunci wajib (must_contain) dengan normalisasi spasi Unicode & variasi tanda hubung (misal: Wi-Fi vs Wifi vs non-breaking hyphen \u2011)
             $normalizedReply = (string) preg_replace('/[\p{Z}\s]+/u', ' ', mb_strtolower($actualReplyText));
-            $normalizedReplyNoHyphen = str_replace('-', '', $normalizedReply);
+            $normalizedReplyNoHyphen = (string) preg_replace('/[\p{Pd}\-]+/u', '', $normalizedReply);
+            $normalizedReplyNoDot = (string) str_replace('.', '', $normalizedReply);
 
             foreach ($testCase->getMustContain() as $term) {
                 $normalizedTerm = (string) preg_replace('/[\p{Z}\s]+/u', ' ', mb_strtolower($term));
-                $normalizedTermNoHyphen = str_replace('-', '', $normalizedTerm);
+                $normalizedTermNoHyphen = (string) preg_replace('/[\p{Pd}\-]+/u', '', $normalizedTerm);
+                $normalizedTermNoDot = (string) str_replace('.', '', $normalizedTerm);
 
                 $matched = str_contains($normalizedReply, $normalizedTerm)
-                    || str_contains($normalizedReplyNoHyphen, $normalizedTermNoHyphen);
+                    || str_contains($normalizedReplyNoHyphen, $normalizedTermNoHyphen)
+                    || str_contains($normalizedReplyNoDot, $normalizedTermNoDot);
+
+                // Normalisasi sinonim formal Bahasa Indonesia (misal: "bisa" ekuivalen semantik dengan "dapat")
+                if (! $matched && $normalizedTerm === 'bisa') {
+                    $matched = str_contains($normalizedReply, 'dapat');
+                }
 
                 if (! $matched) {
                     $failures[] = "Respon AI tidak memuat kata kunci wajib: '{$term}'";

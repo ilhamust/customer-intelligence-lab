@@ -35,14 +35,13 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
     ) {}
 
     /**
-     * Konfigurasi urutan Provider AI untuk Automatic Failover.
+     * Konfigurasi urutan Provider AI untuk Automatic Failover (Diurutkan dari yang tercepat).
      *
      * Alur Failover:
-     * 1. Utama: Google Gemini (gemini-3.8-flash)
-     * 2. Cadangan 1: Groq Cloud (openai/gpt-oss-120b - ultra low latency)
-     * 3. Cadangan 2: OpenRouter (openai/gpt-oss-20b - multi-model hub dengan balance aktif)
-     * 4. Cadangan 3: Cohere (command-r-plus-08-2024 - enterprise RAG & instruction following)
-     * 5. Cadangan 4: AionLabs (aion-labs/aion-2.0 - safety net OpenAI-compatible)
+     * 1. Utama: Groq Cloud (openai/gpt-oss-20b - ultra low latency ~0.8s - 1.0s)
+     * 2. Cadangan 1: Google Gemini (gemini-3.5-flash-lite - lightweight & fast ~1.5s)
+     * 3. Cadangan 2: OpenRouter (openai/gpt-oss-20b - multi-model hub ~2.0s)
+     * 4. Cadangan 3: AionLabs (aion-labs/aion-2.0 - safety net OpenAI-compatible)
      *
      * Jika provider utama mengalami HTTP 429 (Rate Limit) atau error server (5xx),
      * Laravel AI SDK secara otomatis mengalihkan request ke provider berikutnya.
@@ -51,32 +50,35 @@ class CustomerSupportAgent implements Agent, Conversational, HasTools
     {
         $chain = [];
 
-        // Google Gemini (Provider Utama)
-        if (config('ai.providers.gemini.key')) {
-            $chain['gemini'] = env('AI_GEMINI_MODEL', 'gemini-3.8-flash');
-        }
-
-        // Groq (Cadangan 1: Ultra Low Latency)
+        // 1. Groq Cloud (Provider Utama: Ultra Low Latency ~0.8s - 1.0s)
         if (config('ai.providers.groq.key')) {
-            $chain['groq'] = env('AI_GROQ_MODEL', 'openai/gpt-oss-120b');
+            $chain['groq'] = env('AI_GROQ_MODEL', 'openai/gpt-oss-20b');
         }
 
-        // OpenRouter (Cadangan 2: Resilient Multi-model Hub)
+        // 2. Google Gemini (Cadangan 1: Terbukti Stabil & Cepat ~1.5s)
+        if (config('ai.providers.gemini.key')) {
+            $chain['gemini'] = env('AI_GEMINI_MODEL', 'gemini-3.5-flash-lite');
+        }
+
+        // 3. OpenRouter (Cadangan 2: Multi-Model Hub ~2.5s)
         if (config('ai.providers.openrouter.key')) {
             $chain['openrouter'] = env('AI_OPENROUTER_MODEL', 'openai/gpt-oss-20b');
         }
 
-        // Cohere (Cadangan 3: Enterprise RAG)
-        if (config('ai.providers.cohere.key')) {
-            $chain['cohere'] = env('AI_COHERE_MODEL', 'command-r-plus-08-2024');
-        }
-
-        // AionLabs (Cadangan 4: Safety Net)
+        // 4. AionLabs (Cadangan 3: Safety Net)
         if (config('ai.providers.aionlabs.key')) {
             $chain['aionlabs'] = env('AI_AIONLABS_MODEL', 'aion-labs/aion-2.0');
         }
 
-        return ! empty($chain) ? $chain : [config('ai.default', 'gemini')];
+        return ! empty($chain) ? $chain : [config('ai.default', 'groq')];
+    }
+
+    /**
+     * Timeout maksimal (detik) per pemanggilan provider AI untuk mencegah blocking thread.
+     */
+    public function timeout(): int
+    {
+        return (int) config('ai.timeout', 5);
     }
 
     /**

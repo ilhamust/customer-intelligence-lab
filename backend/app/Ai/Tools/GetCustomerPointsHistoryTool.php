@@ -97,8 +97,7 @@ class GetCustomerPointsHistoryTool implements Tool
     {
         return [
             'reason' => $schema->string()
-                ->description('Konteks atau alasan pengecekan riwayat poin (opsional)')
-                ->nullable(),
+                ->description('Konteks atau alasan pengecekan riwayat poin (opsional)'),
         ];
     }
 }

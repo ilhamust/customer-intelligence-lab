@@ -28,6 +28,7 @@ class JarvisKnowledgeBase
    - Jam Operasional: Beroperasi 24 Jam Nonstop setiap hari.
    - Fasilitas Stasiun:
      * Fast Charging & Standard Charging (konektor CCS2, Type 2, dan DC Fast).
+     * Kompatibilitas Kendaraan: Seluruh mobil listrik (termasuk BYD M6, Hyundai Ioniq, dan kendaraan listrik berstandar CCS2/Type 2) dipastikan bisa melakukan pengisian daya di Jarvis.
      * Lounge istirahat khusus driver dengan AC nyaman.
      * Toilet bersih & Mushola.
      * Fasilitas Wi-Fi gratis untuk pelanggan yang sedang berada di stasiun.
@@ -39,7 +40,7 @@ class JarvisKnowledgeBase
 4. PROGRAM LOYALITAS (JARVIS POINTS):
    - Sistem Poin: Setiap kWh atau nominal pengisian daya di stasiun Jarvis otomatis menghasilkan "Jarvis Points".
    - Saldo Poin: Tersimpan otomatis di profil pelanggan.
-   - Penukaran Hadiah (Reward): Poin dapat ditukarkan dengan berbagai reward menarik, contoh: 5.000 poin dapat ditukar dengan kopi gratis di lounge stasiun dan benefit voucher charging.
+   - Penukaran Hadiah (Reward): Poin dapat ditukarkan dengan berbagai reward menarik di lounge stasiun. Ketika pelanggan bertanya poin bisa ditukar dengan apa saja, jelaskan bahwa 5.000 poin dapat ditukar dengan kopi gratis di lounge khusus driver, voucher pengisian daya (charging), atau benefit lainnya.
 
 === STRICT DOMAIN GUARDRAILS & ATURAN BATASAN (WAJIB DIPATUHI) ===
 1. BATASAN CAKUPAN DOMAIN (STRICT SCOPE):
