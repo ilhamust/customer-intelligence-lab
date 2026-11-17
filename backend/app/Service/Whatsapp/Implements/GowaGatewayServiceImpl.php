@@ -10,6 +10,7 @@ use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use App\Traits\ServiceHelper;
 use Exception;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class GowaGatewayServiceImpl implements WhatsappGatewayService
@@ -49,11 +50,27 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
     }
 
     /**
-     * Resolve device ID falling back to default device if null.
+     * Resolve device ID falling back to active device cache/DB or default device if null.
      */
     protected function resolveDeviceId(?string $deviceId): string
     {
-        return $deviceId ?: $this->defaultDeviceId;
+        if (! empty($deviceId)) {
+            return $deviceId;
+        }
+
+        $cached = Cache::get('whatsapp:active_device_id');
+        if (! empty($cached)) {
+            return (string) $cached;
+        }
+
+        $activeDbDevice = WhatsappChannel::where('is_active', true)->value('device_id');
+        if (! empty($activeDbDevice)) {
+            Cache::forever('whatsapp:active_device_id', (string) $activeDbDevice);
+
+            return (string) $activeDbDevice;
+        }
+
+        return $this->defaultDeviceId;
     }
 
     /**

@@ -11,10 +11,13 @@ use App\Http\Requests\Whatsapp\RegisterDeviceRequest;
 use App\Http\Resources\Api\DataResource;
 use App\Http\Resources\Api\ErrorResource;
 use App\Http\Resources\Api\InternalErrorResource;
+use App\Models\Bot\WhatsappChannel;
 use App\Service\Whatsapp\Contracts\WhatsappGatewayService;
 use App\Traits\ControllerHelpers;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class WhatsappDeviceController extends Controller
 {
@@ -206,6 +209,95 @@ class WhatsappDeviceController extends Controller
             return $this->handleInternal($e, $ctx);
         } catch (Exception $e) {
             return $this->handleUnexpected($e, $ctx, 'Failed to delete WhatsApp device.');
+        }
+    }
+
+    /**
+     * Get currently active WhatsApp device.
+     */
+    public function activeDevice(Request $request): DataResource|ErrorResource|InternalErrorResource
+    {
+        $ctx = __METHOD__;
+
+        try {
+            $cachedId = Cache::get('whatsapp:active_device_id');
+            $channel = null;
+
+            if (! empty($cachedId)) {
+                $channel = WhatsappChannel::where('device_id', $cachedId)->first();
+            }
+
+            if (! $channel) {
+                $channel = WhatsappChannel::where('is_active', true)->first();
+                if ($channel) {
+                    Cache::forever('whatsapp:active_device_id', $channel->device_id);
+                }
+            }
+
+            if (! $channel) {
+                $defaultId = config('services.gowa.default_device_id', 'default');
+                $channel = WhatsappChannel::where('device_id', $defaultId)->first();
+            }
+
+            $data = [
+                'device_id' => $channel?->device_id ?? config('services.gowa.default_device_id', 'default'),
+                'name' => $channel?->name ?? 'Default Gateway',
+                'phone_number' => $channel?->phone_number,
+                'status' => $channel?->status ?? 'disconnected',
+                'is_active' => true,
+            ];
+
+            return $this->respondWithData($data, 'Successfully retrieved active WhatsApp device');
+        } catch (Exception $e) {
+            return $this->handleUnexpected($e, $ctx, 'Failed to fetch active WhatsApp device.');
+        }
+    }
+
+    /**
+     * Set a specific WhatsApp device as the default active device.
+     */
+    public function select(Request $request, string $deviceId): DataResource|ErrorResource|InternalErrorResource
+    {
+        $ctx = __METHOD__;
+
+        try {
+            $channel = WhatsappChannel::where('device_id', $deviceId)->first();
+
+            if (! $channel) {
+                // If device is not yet in DB, verify with GOWA status or create record
+                try {
+                    $status = $this->whatsappService->getStatus($deviceId);
+                    $channel = WhatsappChannel::create([
+                        'device_id' => $deviceId,
+                        'name' => 'Gateway '.$deviceId,
+                        'status' => ! empty($status['is_connected']) ? 'connected' : 'disconnected',
+                        'is_active' => true,
+                    ]);
+                } catch (Exception) {
+                    throw new NotFoundException("WhatsApp channel for device '{$deviceId}' not found.");
+                }
+            }
+
+            DB::transaction(function () use ($deviceId) {
+                WhatsappChannel::where('device_id', '!=', $deviceId)->update(['is_active' => false]);
+                WhatsappChannel::where('device_id', $deviceId)->update(['is_active' => true]);
+            });
+
+            Cache::forever('whatsapp:active_device_id', $deviceId);
+
+            return $this->respondWithData([
+                'device_id' => $deviceId,
+                'name' => $channel->name,
+                'is_active' => true,
+            ], 'Perangkat berhasil ditetapkan sebagai perangkat aktif');
+        } catch (NotFoundException $e) {
+            return $this->handleNotFound($e, $ctx);
+        } catch (BadRequestException $e) {
+            return $this->handleBadRequest($e, $ctx);
+        } catch (InternalServerException $e) {
+            return $this->handleInternal($e, $ctx);
+        } catch (Exception $e) {
+            return $this->handleUnexpected($e, $ctx, 'Failed to select active WhatsApp device.');
         }
     }
 }

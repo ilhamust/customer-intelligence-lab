@@ -19,7 +19,9 @@ Route::prefix('v1')->group(function () {
     // WhatsApp Device Management for Frontend Back Office
     Route::prefix('whatsapp')->group(function () {
         Route::get('/devices', [WhatsappDeviceController::class, 'index'])->name('whatsapp.devices.index');
+        Route::get('/devices/active', [WhatsappDeviceController::class, 'activeDevice'])->name('whatsapp.devices.active');
         Route::post('/devices', [WhatsappDeviceController::class, 'register'])->name('whatsapp.devices.register');
+        Route::post('/devices/{deviceId}/select', [WhatsappDeviceController::class, 'select'])->name('whatsapp.devices.select');
         Route::delete('/devices/{deviceId}', [WhatsappDeviceController::class, 'destroy'])->name('whatsapp.devices.destroy');
         Route::get('/status', [WhatsappDeviceController::class, 'status'])->name('whatsapp.status');
         Route::post('/login-qr', [WhatsappDeviceController::class, 'loginQr'])->name('whatsapp.login.qr');
