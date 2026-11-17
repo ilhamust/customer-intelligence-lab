@@ -49,6 +49,17 @@ export const reconnect = async (deviceId) =>
   await api.post(`${url}/reconnect`, {}, { params: deviceId ? { device_id: deviceId } : {} })
 
 /**
+ * Set a specific WhatsApp device as the default active device.
+ * @param {string} deviceId
+ */
+export const select = async (deviceId) => await api.post(`${url}/devices/${deviceId}/select`)
+
+/**
+ * Get currently active WhatsApp device.
+ */
+export const getActive = async () => await api.get(`${url}/devices/active`)
+
+/**
  * Delete WhatsApp device from gateway and database.
  * @param {string} deviceId
  */

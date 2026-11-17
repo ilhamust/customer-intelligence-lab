@@ -20,6 +20,7 @@ const activeDevice = ref(null)
 const showDeleteDialog = ref(false)
 const deviceToDelete = ref(null)
 const deleteLoading = ref(false)
+const selectingDeviceId = ref(null)
 
 onMounted(async () => {
   await fetchDevices()
@@ -36,6 +37,19 @@ const fetchDevices = async () => {
 const handleSearch = (e) => {
   searchInput.value = e.target.value
   p$device.a$search(e.target.value)
+}
+
+const handleSelectDevice = async (device) => {
+  if (selectingDeviceId.value) return
+  selectingDeviceId.value = device.device_id
+  try {
+    await p$device.a$select(device.device_id)
+    notify.success(`Perangkat ${device.name || device.device_id} berhasil dijadikan perangkat aktif`)
+  } catch (e) {
+    notify.error(e?.message ?? e ?? 'Gagal menetapkan perangkat aktif')
+  } finally {
+    selectingDeviceId.value = null
+  }
 }
 
 const handleReconnect = async (device) => {
@@ -260,23 +274,27 @@ const handleOpenCode = (device) => {
 
           <!-- Card Bottom: Selected State & Action Dropdown Menu -->
           <div class="mt-4 pt-3 border-t border-base-300 flex items-center justify-between">
-            <!-- Selected Indicator Pill -->
+            <!-- Selected Indicator Pill & Action -->
             <div>
               <BaseBadge
-                v-if="p$device.g$selectedDeviceId === device.device_id"
-                variant="primary"
+                v-if="p$device.g$selectedDeviceId === device.device_id || device.is_active"
+                variant="success"
                 pill
                 size="xs"
+                class="gap-1 font-medium bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-400"
               >
-                Selected
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Active / Default
               </BaseBadge>
               <button
                 v-else
                 type="button"
-                @click="p$device.a$select(device.device_id)"
-                class="text-xs font-semibold text-base-content/50 hover:text-base-content transition-colors cursor-pointer"
+                :disabled="selectingDeviceId === device.device_id"
+                @click="handleSelectDevice(device)"
+                class="text-xs font-semibold text-base-content/50 hover:text-primary transition-colors cursor-pointer flex items-center gap-1.5 py-0.5 px-1 rounded hover:bg-base-200/60 disabled:opacity-50"
               >
-                Select
+                <span v-if="selectingDeviceId === device.device_id" class="loading loading-spinner loading-xs text-primary"></span>
+                <span>Select</span>
               </button>
             </div>
 

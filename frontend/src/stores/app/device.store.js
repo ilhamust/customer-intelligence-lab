@@ -44,8 +44,19 @@ export const useDeviceStore = defineStore('device', () => {
       const listData = res?.data ?? res ?? []
       devices.value = Array.isArray(listData) ? listData : []
 
-      // Otomatis pilih device pertama jika belum ada yang dipilih
-      if (!selectedDeviceId.value && devices.value.length > 0) {
+      // Inisialisasi selectedDeviceId:
+      // 1. Device dengan is_active: true dari backend
+      // 2. Atau dari localStorage
+      // 3. Fallback device pertama
+      const activeDevice = devices.value.find((d) => d.is_active)
+      const storedActive = localStorage.getItem('jarvis_active_device')
+
+      if (activeDevice) {
+        selectedDeviceId.value = activeDevice.device_id
+        localStorage.setItem('jarvis_active_device', activeDevice.device_id)
+      } else if (storedActive && devices.value.some((d) => d.device_id === storedActive)) {
+        selectedDeviceId.value = storedActive
+      } else if (!selectedDeviceId.value && devices.value.length > 0) {
         selectedDeviceId.value = devices.value[0].device_id
       }
       return devices.value
@@ -66,8 +77,22 @@ export const useDeviceStore = defineStore('device', () => {
     }
   }
 
-  const a$select = (deviceId) => {
-    selectedDeviceId.value = deviceId
+  const a$select = async (deviceId) => {
+    try {
+      const res = await s$device.select(deviceId)
+      selectedDeviceId.value = deviceId
+      localStorage.setItem('jarvis_active_device', deviceId)
+
+      // Perbarui status is_active pada array devices.value
+      devices.value = devices.value.map((d) => ({
+        ...d,
+        is_active: d.device_id === deviceId,
+      }))
+
+      return res?.data ?? res
+    } catch (e) {
+      throw e?.message ?? e
+    }
   }
 
   const a$getLoginQr = async (deviceId) => {
