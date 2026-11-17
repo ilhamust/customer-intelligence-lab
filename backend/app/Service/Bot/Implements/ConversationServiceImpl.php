@@ -52,8 +52,9 @@ class ConversationServiceImpl implements ConversationService
             return $deviceId;
         }
 
-        $channel = WhatsappChannel::where('status', 'connected')->first()
-            ?? WhatsappChannel::where('is_active', true)->first()
+        // Prioritaskan perangkat yang dipilih admin (is_active=true), baru fallback ke status=connected
+        $channel = WhatsappChannel::where('is_active', true)->first()
+            ?? WhatsappChannel::where('status', 'connected')->first()
             ?? WhatsappChannel::first();
 
         return $channel?->device_id;

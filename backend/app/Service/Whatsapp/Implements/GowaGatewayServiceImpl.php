@@ -50,19 +50,21 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
     }
 
     /**
-     * Resolve device ID falling back to active device cache/DB or default device if null.
+     * Resolve device ID dengan selalu memprioritaskan perangkat aktif yang dipilih admin
+     * (dari Redis cache atau DB is_active=true), baru fallback ke $deviceId percakapan atau default.
+     *
+     * Ini memastikan pesan keluar selalu dikirim melalui perangkat yang dipilih di dashboard,
+     * bukan perangkat yang tersimpan di record percakapan lama.
      */
     protected function resolveDeviceId(?string $deviceId): string
     {
-        if (! empty($deviceId)) {
-            return $deviceId;
-        }
-
+        // 1. Prioritaskan perangkat aktif yang dipilih admin (dari Redis cache)
         $cached = Cache::get('whatsapp:active_device_id');
         if (! empty($cached)) {
             return (string) $cached;
         }
 
+        // 2. Cek DB jika cache miss, lalu simpan ulang ke cache
         $activeDbDevice = WhatsappChannel::where('is_active', true)->value('device_id');
         if (! empty($activeDbDevice)) {
             Cache::forever('whatsapp:active_device_id', (string) $activeDbDevice);
@@ -70,6 +72,12 @@ class GowaGatewayServiceImpl implements WhatsappGatewayService
             return (string) $activeDbDevice;
         }
 
+        // 3. Fallback: gunakan device_id dari record percakapan jika ada
+        if (! empty($deviceId)) {
+            return $deviceId;
+        }
+
+        // 4. Last resort: gunakan device default dari konfigurasi
         return $this->defaultDeviceId;
     }
 
