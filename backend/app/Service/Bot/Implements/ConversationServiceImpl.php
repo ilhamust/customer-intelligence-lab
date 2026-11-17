@@ -270,7 +270,7 @@ class ConversationServiceImpl implements ConversationService
             $lastTime = null;
             if (! empty($chat['last_message_time']) && ! str_starts_with($chat['last_message_time'], '0001')) {
                 try {
-                    $lastTime = Carbon::parse($chat['last_message_time']);
+                    $lastTime = Carbon::parse($chat['last_message_time'])->setTimezone(config('app.timezone', 'Asia/Jakarta'));
                 } catch (Exception) {
                     $lastTime = null;
                 }
@@ -306,7 +306,7 @@ class ConversationServiceImpl implements ConversationService
                     $sentAt = now();
                     if (! empty($gMsg['timestamp'])) {
                         try {
-                            $sentAt = Carbon::parse($gMsg['timestamp']);
+                            $sentAt = Carbon::parse($gMsg['timestamp'])->setTimezone(config('app.timezone', 'Asia/Jakarta'));
                         } catch (Exception) {
                             $sentAt = now();
                         }
@@ -399,7 +399,36 @@ class ConversationServiceImpl implements ConversationService
     public function handleIncomingMessageWebhook(array $payload, ?string $deviceId = null): ?Message
     {
         $m = __METHOD__;
-        $id = $this->resolveDeviceId($deviceId ?: ($payload['device_id'] ?? null));
+
+        // Ambil perangkat aktif yang dipilih oleh sistem/admin
+        $activeDeviceId = \Illuminate\Support\Facades\Cache::get('whatsapp:active_device_id')
+            ?? WhatsappChannel::where('is_active', true)->value('device_id');
+        $activeChannel = $activeDeviceId
+            ? WhatsappChannel::where('device_id', $activeDeviceId)->first()
+            : null;
+
+        // Identifikasi channel dari payload webhook masuk
+        $incomingDeviceRaw = $deviceId ?: ($payload['device_id'] ?? null);
+        $incomingChannel = null;
+        if ($incomingDeviceRaw) {
+            $cleanPhone = preg_replace('/[^0-9]/', '', explode('@', (string) $incomingDeviceRaw)[0]);
+            $incomingChannel = WhatsappChannel::where('device_id', $incomingDeviceRaw)
+                ->orWhere('jid', $incomingDeviceRaw)
+                ->orWhere('phone_number', $cleanPhone)
+                ->first();
+        }
+
+        // GUARD 1: Jika ada perangkat aktif yang dipilih dan webhook berasal dari perangkat non-aktif, abaikan
+        if ($activeChannel && $incomingChannel && $incomingChannel->device_id !== $activeChannel->device_id) {
+            $this->logInfo($m, 'Ignoring incoming message from non-active WhatsApp device', [
+                'incoming_device' => $incomingChannel->device_id,
+                'active_device' => $activeChannel->device_id,
+            ]);
+
+            return null;
+        }
+
+        $id = $activeChannel?->device_id ?? $this->resolveDeviceId($incomingDeviceRaw);
 
         $data = $payload['payload'] ?? $payload;
         $chatJid = $data['from'] ?? $data['chat_jid'] ?? $data['sender'] ?? null;
@@ -416,10 +445,11 @@ class ConversationServiceImpl implements ConversationService
         $text = $data['body'] ?? $data['content'] ?? $data['text'] ?? '';
         $messageId = $data['id'] ?? $data['whatsapp_message_id'] ?? null;
 
+        // Normalisasi timestamp webhook (UTC) secara eksplisit ke zona waktu Asia/Jakarta (WIB)
         $sentAt = now();
         if (! empty($data['timestamp'])) {
             try {
-                $sentAt = Carbon::parse($data['timestamp']);
+                $sentAt = Carbon::parse($data['timestamp'])->setTimezone(config('app.timezone', 'Asia/Jakarta'));
             } catch (Exception) {
                 $sentAt = now();
             }
@@ -604,6 +634,18 @@ class ConversationServiceImpl implements ConversationService
                     'queue_position' => $queuePos,
                 ]);
             }
+
+            return $message;
+        }
+
+        // GUARD 2: Jika perangkat aktif berstatus disconnected atau offline,
+        // pesan pelanggan tetap tersimpan dan disiarkan ke dashboard, namun JANGAN jalankan auto-reply bot.
+        if ($activeChannel && $activeChannel->status !== 'connected') {
+            $this->logWarning($m, 'Active WhatsApp device is offline/disconnected. Message stored in inbox, suppressing bot auto-reply', [
+                'conversation_id' => $conversation->id,
+                'device_id' => $activeChannel->device_id,
+                'status' => $activeChannel->status,
+            ]);
 
             return $message;
         }

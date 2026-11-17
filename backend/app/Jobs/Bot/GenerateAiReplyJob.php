@@ -68,6 +68,23 @@ class GenerateAiReplyJob implements ShouldQueue
             return;
         }
 
+        // Validasi status perangkat aktif: batalkan balasan jika perangkat offline/terputus
+        $activeDeviceId = \Illuminate\Support\Facades\Cache::get('whatsapp:active_device_id')
+            ?? \App\Models\Bot\WhatsappChannel::where('is_active', true)->value('device_id');
+        $activeChannel = $activeDeviceId
+            ? \App\Models\Bot\WhatsappChannel::where('device_id', $activeDeviceId)->first()
+            : null;
+
+        if ($activeChannel && $activeChannel->status !== 'connected') {
+            Log::warning('[GenerateAiReplyJob] Active WhatsApp device is offline/disconnected. Aborting reply', [
+                ...$logContext,
+                'device_id' => $activeChannel->device_id,
+                'status' => $activeChannel->status,
+            ]);
+
+            return;
+        }
+
         // Ambil data pesan pelanggan yang memicu job ini
         $incomingMsg = Message::find($this->incomingMessageId);
         if (! $incomingMsg || $incomingMsg->is_from_me) {
